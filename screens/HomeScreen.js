@@ -1,4 +1,4 @@
-// HomeScreen.js
+// HomeScreen.js - Updated version with all features
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -14,53 +14,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { learningAPI } from '../services/api';
 
 const { width } = Dimensions.get('window');
-
-// Bar Chart Component
-const BarChart = ({ data }) => {
-  const maxCount = Math.max(...data.map(d => d.count), 1);
-  const chartHeight = 200;
-  const barWidth = (width - 80) / data.length - 10;
-
-  const colors = ['#EF4444', '#F59E0B', '#3B82F6', '#10B981', '#8B5CF6'];
-
-  return (
-    <View style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>📊 Phân bố mức độ từ vựng</Text>
-      
-      <View style={styles.chart}>
-        {data.map((item, index) => {
-          const barHeight = (item.count / maxCount) * chartHeight;
-          
-          return (
-            <View key={item.level} style={styles.barWrapper}>
-              <View style={styles.barContainer}>
-                <Text style={styles.countLabel}>{item.count}</Text>
-                <View
-                  style={[
-                    styles.bar,
-                    {
-                      height: barHeight || 4,
-                      backgroundColor: colors[index],
-                      width: barWidth,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.barLabel}>{item.label}</Text>
-              <Text style={styles.levelNumber}>Lv.{item.level}</Text>
-            </View>
-          );
-        })}
-      </View>
-
-      <View style={styles.totalSection}>
-        <Text style={styles.totalText}>
-          Tổng: <Text style={styles.totalNumber}>{data.reduce((sum, d) => sum + d.count, 0)}</Text> từ
-        </Text>
-      </View>
-    </View>
-  );
-};
 
 export default function HomeScreen({ navigation }) {
   const { user, logout } = useAuth();
@@ -88,157 +41,320 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
-  const handleLogout = () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Đăng xuất', onPress: logout, style: 'destructive' },
-    ]);
+  // Render bar chart
+  const renderBarChart = () => {
+    if (!stats?.levels || stats.levels.length === 0) return null;
+
+    const maxCount = Math.max(...stats.levels.map(d => d.count), 1);
+    const chartHeight = 200;
+    const colors = ['#EF4444', '#F59E0B', '#3B82F6', '#059669', '#8B5CF6'];
+
+    return (
+        <View style={styles.chartContainer}>
+          <View style={styles.chartHeader}>
+            <View style={styles.notebookIcon}>
+              <Text style={styles.notebookText}>📓</Text>
+            </View>
+            <Text style={styles.chartTitle}>Sổ tay đã có {stats.totalWords || 0} từ</Text>
+          </View>
+
+          <View style={styles.chart}>
+            {stats.levels.map((item, index) => {
+              const barHeight = (item.count / maxCount) * chartHeight;
+
+              return (
+                  <View key={item.level} style={styles.barWrapper}>
+                    <View style={styles.barContainer}>
+                      <Text style={styles.countLabel}>{item.count} từ</Text>
+                      <View
+                          style={[
+                            styles.bar,
+                            {
+                              height: barHeight || 4,
+                              backgroundColor: colors[index],
+                            },
+                          ]}
+                      />
+                    </View>
+                    <Text style={styles.levelNumber}>{item.level}</Text>
+                  </View>
+              );
+            })}
+          </View>
+        </View>
+    );
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.greeting}>Xin chào, {user?.name}! 👋</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Đăng xuất</Text>
+      <ScrollView
+          style={styles.container}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logo}>MOCHIVOCAB</Text>
+          </View>
+          <TouchableOpacity
+              onPress={() => navigation.navigate('Profile')}
+              style={styles.profileButton}
+          >
+            <Text style={styles.profileIcon}>👤</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Banner "Mở toàn bộ khóa học" */}
+        <TouchableOpacity style={styles.banner}>
+          <View style={styles.bannerContent}>
+            <Text style={styles.bannerIcon}>🎉</Text>
+            <Text style={styles.bannerText}>MỞ TOÀN BỘ KHÓA HỌC</Text>
+          </View>
+          <View style={styles.bannerButton}>
+            <Text style={styles.bannerButtonText}>MỞ NGAY</Text>
+          </View>
         </TouchableOpacity>
-      </View>
 
-      {stats && (
-        <>
-          <View style={styles.statsContainer}>
-            <Text style={styles.sectionTitle}>📈 Thống kê tổng quan</Text>
-            
-            <View style={styles.statsGrid}>
-              <View style={[styles.statCard, { backgroundColor: '#EEF2FF' }]}>
-                <Text style={styles.statNumber}>{stats.totalWords || 0}</Text>
-                <Text style={styles.statLabel}>Tổng từ</Text>
-              </View>
-              
-              <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
-                <Text style={styles.statNumber}>{stats.statusBreakdown?.learning || 0}</Text>
-                <Text style={styles.statLabel}>Đang học</Text>
-              </View>
-              
-              <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
-                <Text style={styles.statNumber}>{stats.statusBreakdown?.review || 0}</Text>
-                <Text style={styles.statLabel}>Cần ôn tập</Text>
-              </View>
-              
-              <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
-                <Text style={styles.statNumber}>{stats.statusBreakdown?.mastered || 0}</Text>
-                <Text style={styles.statLabel}>Đã thuộc</Text>
-              </View>
-            </View>
+        {stats && (
+            <>
+              {/* Bar Chart */}
+              {renderBarChart()}
 
-            {stats.dueForReview > 0 && (
-              <View style={styles.alertBox}>
-                <Text style={styles.alertText}>
-                  ⏰ Bạn có {stats.dueForReview} từ cần ôn tập ngay!
+              {/* Thống kê tổng quan */}
+              <View style={styles.statsContainer}>
+                <Text style={styles.sectionTitle}>📈 Thống kê tổng quan</Text>
+
+                <View style={styles.statsGrid}>
+                  <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
+                    <Text style={styles.statNumber}>{stats.statusBreakdown?.learning || 0}</Text>
+                    <Text style={styles.statLabel}>Đang học</Text>
+                  </View>
+
+                  <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
+                    <Text style={styles.statNumber}>{stats.statusBreakdown?.review || 0}</Text>
+                    <Text style={styles.statLabel}>Cần ôn tập</Text>
+                  </View>
+
+                  <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
+                    <Text style={styles.statNumber}>{stats.statusBreakdown?.mastered || 0}</Text>
+                    <Text style={styles.statLabel}>Đã thuộc</Text>
+                  </View>
+
+                  <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>
+                    <Text style={styles.statNumber}>{stats.dueForReview || 0}</Text>
+                    <Text style={styles.statLabel}>Đến giờ ôn</Text>
+                  </View>
+                </View>
+
+                {stats.dueForReview > 0 && (
+                    <View style={styles.alertBox}>
+                      <Text style={styles.alertText}>
+                        ⏰ Bạn có {stats.dueForReview} từ cần ôn tập ngay!
+                      </Text>
+                    </View>
+                )}
+              </View>
+
+              {/* Các nút hành động */}
+              <View style={styles.actionsContainer}>
+                <Text style={styles.sectionTitle}>🎯 Hôm nay học gì?</Text>
+
+                {/* Nút Học từ mới */}
+                <TouchableOpacity
+                    style={[styles.actionCard, { backgroundColor: '#10B981' }]}
+                    onPress={() => navigation.navigate('Topics')}
+                >
+                  <Text style={styles.actionIcon}>📚</Text>
+                  <View style={styles.actionContent}>
+                    <Text style={styles.actionTitle}>Học từ mới</Text>
+                    <Text style={styles.actionDescription}>
+                      Khám phá từ vựng mới mỗi ngày
+                    </Text>
+                  </View>
+                  <Text style={styles.actionArrow}>›</Text>
+                </TouchableOpacity>
+
+                {/* Nút Ôn tập */}
+                <TouchableOpacity
+                    style={[styles.actionCard, { backgroundColor: '#059669' }]}
+                    onPress={() => navigation.navigate('Review')}
+                >
+                  <Text style={styles.actionIcon}>🔄</Text>
+                  <View style={styles.actionContent}>
+                    <Text style={styles.actionTitle}>Ôn tập</Text>
+                    <Text style={styles.actionDescription}>
+                      Ôn lại theo giờ vàng để nhớ lâu hơn
+                    </Text>
+                  </View>
+                  <Text style={styles.actionArrow}>›</Text>
+                </TouchableOpacity>
+
+                {/* Nút Thống kê chi tiết */}
+                <TouchableOpacity
+                    style={[styles.actionCard, { backgroundColor: '#DC2626' }]}
+                    onPress={() => navigation.navigate('Stats')}
+                >
+                  <Text style={styles.actionIcon}>📈</Text>
+                  <View style={styles.actionContent}>
+                    <Text style={styles.actionTitle}>Thống kê chi tiết</Text>
+                    <Text style={styles.actionDescription}>
+                      Xem tiến trình học tập của bạn
+                    </Text>
+                  </View>
+                  <Text style={styles.actionArrow}>›</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Info box */}
+              <View style={styles.infoBox}>
+                <Text style={styles.infoTitle}>💡 Giờ vàng là gì?</Text>
+                <Text style={styles.infoText}>
+                  Giờ vàng là khoảng thời gian tối ưu để ôn tập từ vựng. Khi bạn học một
+                  từ mới, não bộ sẽ dần quên nó theo thời gian. Ôn tập đúng lúc giúp bạn
+                  ghi nhớ từ lâu hơn và hiệu quả hơn!
                 </Text>
               </View>
-            )}
-          </View>
-
-          {/* Bar Chart */}
-          {stats.levels && stats.levels.length > 0 && (
-            <BarChart data={stats.levels} />
-          )}
-
-          <View style={styles.actionsContainer}>
-            <Text style={styles.sectionTitle}>🎯 Hôm nay học gì?</Text>
-
-            <TouchableOpacity
-              style={[styles.actionCard, { backgroundColor: '#4F46E5' }]}
-              onPress={() => navigation.navigate('LearnNew')}
-            >
-              <Text style={styles.actionIcon}>📚</Text>
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Học từ mới</Text>
-                <Text style={styles.actionDescription}>
-                  Khám phá từ vựng mới mỗi ngày
-                </Text>
-              </View>
-              <Text style={styles.actionArrow}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionCard, { backgroundColor: '#059669' }]}
-              onPress={() => navigation.navigate('Review')}
-            >
-              <Text style={styles.actionIcon}>🔄</Text>
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Ôn tập</Text>
-                <Text style={styles.actionDescription}>
-                  Ôn lại theo giờ vàng để nhớ lâu hơn
-                </Text>
-              </View>
-              <Text style={styles.actionArrow}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionCard, { backgroundColor: '#DC2626' }]}
-              onPress={() => navigation.navigate('Stats')}
-            >
-              <Text style={styles.actionIcon}>📈</Text>
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Thống kê chi tiết</Text>
-                <Text style={styles.actionDescription}>
-                  Xem tiến trình học tập của bạn
-                </Text>
-              </View>
-              <Text style={styles.actionArrow}>›</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>💡 Giờ vàng là gì?</Text>
-            <Text style={styles.infoText}>
-              Giờ vàng là khoảng thời gian tối ưu để ôn tập từ vựng. Khi bạn học một
-              từ mới, não bộ sẽ dần quên nó theo thời gian. Ôn tập đúng lúc giúp bạn
-              ghi nhớ từ lâu hơn và hiệu quả hơn!
-            </Text>
-          </View>
-        </>
-      )}
-    </ScrollView>
+            </>
+        )}
+      </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F5F5F5',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
-  greeting: {
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logo: {
     fontSize: 20,
+    fontWeight: 'bold',
+    color: '#F59E0B',
+  },
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileIcon: {
+    fontSize: 24,
+  },
+  banner: {
+    backgroundColor: '#FCD34D',
+    margin: 16,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  bannerIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  bannerText: {
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1F2937',
   },
-  logoutButton: {
-    padding: 8,
+  bannerButton: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
-  logoutText: {
-    color: '#EF4444',
+  bannerButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#F59E0B',
+  },
+  chartContainer: {
+    margin: 16,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  chartHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  notebookIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  notebookText: {
+    fontSize: 24,
+  },
+  chartTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  chart: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 240,
+  },
+  barWrapper: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  barContainer: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: 220,
+  },
+  countLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  bar: {
+    width: 40,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    minHeight: 4,
+  },
+  levelNumber: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 8,
   },
   statsContainer: {
-    padding: 20,
+    padding: 16,
   },
   sectionTitle: {
     fontSize: 18,
@@ -281,79 +397,8 @@ const styles = StyleSheet.create({
     color: '#92400E',
     fontWeight: '600',
   },
-  chartContainer: {
-    margin: 20,
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 20,
-  },
-  chart: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    height: 240,
-    paddingHorizontal: 5,
-  },
-  barWrapper: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  barContainer: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    height: 220,
-  },
-  countLabel: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  bar: {
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    minHeight: 4,
-  },
-  barLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  levelNumber: {
-    fontSize: 10,
-    color: '#9CA3AF',
-    marginTop: 2,
-  },
-  totalSection: {
-    marginTop: 20,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    alignItems: 'center',
-  },
-  totalText: {
-    fontSize: 16,
-    color: '#6B7280',
-  },
-  totalNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#4F46E5',
-  },
   actionsContainer: {
-    padding: 20,
+    padding: 16,
   },
   actionCard: {
     flexDirection: 'row',
@@ -391,7 +436,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   infoBox: {
-    margin: 20,
+    margin: 16,
     padding: 16,
     backgroundColor: '#EEF2FF',
     borderRadius: 12,

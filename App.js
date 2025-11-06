@@ -14,7 +14,8 @@ import TopicsScreen from './screens/TopicsScreen';
 import LearnNewScreen from './screens/LearnNewScreen';
 import ReviewScreen from './screens/ReviewScreen';
 import StatsScreen from './screens/StatsScreen';
-
+import ProfileScreen from './screens/ProfileScreen';
+import SettingsScreen from './screens/SettingsScreen';
 const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => {
@@ -81,6 +82,16 @@ const AppNavigator = () => {
                             name="Stats"
                             component={StatsScreen}
                             options={{ title: 'Thống kê' }}
+                        />
+                        <Stack.Screen
+                            name="Profile"
+                            component={ProfileScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="Settings"
+                            component={SettingsScreen}
+                            options={{ headerShown: false }}
                         />
                     </>
                 )}

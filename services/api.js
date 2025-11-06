@@ -86,10 +86,19 @@ export const authAPI = {
 };
 
 // Vocabulary APIs
+// Vocabulary APIs
 export const vocabularyAPI = {
-  getNewVocabs: async (limit = 10, level = null) => {
+  // Get list of topics
+  getTopics: async () => {
+    const response = await api.get('/topics');
+    return response.data;
+  },
+
+  // Get new vocabularies with optional topicId
+  getNewVocabs: async (limit = 10, level = null, topicId = null) => {
     const params = { limit };
     if (level) params.level = level;
+    if (topicId) params.topicId = topicId;
     const response = await api.get('/vocabulary/new', { params });
     return response.data;
   },
@@ -102,13 +111,13 @@ export const vocabularyAPI = {
 
 // Learning APIs
 export const learningAPI = {
-  startLearning: async (vocabId) => {
-    const response = await api.post('/learning/start', { vocabId });
+  startLearning: async (vocabId, quality) => {
+    const response = await api.post('/learning/start', { vocabId, quality });
     return response.data;
   },
 
-  updateProgress: async (vocabId, quality) => {
-    const response = await api.post('/learning/update', { vocabId, quality });
+  updateProgress: async (vocabId, isCorrect) => {
+    const response = await api.post('/learning/update', { vocabId, isCorrect });
     return response.data;
   },
 
