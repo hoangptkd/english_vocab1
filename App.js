@@ -3,6 +3,8 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { WebSocketProvider } from './contexts/WebSocketContext';
+
 import { ActivityIndicator, View } from 'react-native';
 
 // Screens
@@ -161,7 +163,9 @@ const AppNavigator = () => {
 export default function App() {
     return (
         <AuthProvider>
-            <AppNavigator />
+            <WebSocketProvider>
+                <AppNavigator />
+            </WebSocketProvider>
         </AuthProvider>
     );
 }

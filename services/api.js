@@ -85,6 +85,17 @@ export const authAPI = {
     return user ? JSON.parse(user) : null;
   },
 
+  refreshProfile: async () => {
+    try {
+      const response = await api.get('/user/profile/me');
+      // đừng set context ở đây
+      return response.data;
+    } catch (e) {
+      console.error('Không thể tải profile mới:', e);
+      throw e;
+    }
+  },
+
   changePassword: async (currentPassword, newPassword) => {
     try {
       const response = await api.put('/user/changePassword', { currentPassword, newPassword });
@@ -108,7 +119,7 @@ export const authAPI = {
 
   updatePremium: async (durationMonths) => {
     try {
-      const response = await api.put('/user/updatePremium', {premium : "premium", durationMonths });
+      const response = await api.put('/user/updatePremium', {role : "premium", durationMonths });
       return response.data; // Trả về thông tin người dùng đã cập nhật
     } catch (error) {
       console.error('Update premium API error:', error);

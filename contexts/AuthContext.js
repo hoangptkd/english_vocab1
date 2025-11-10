@@ -1,7 +1,7 @@
 // contexts/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authAPI } from '../services/api';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -54,7 +54,16 @@ export const AuthProvider = ({ children }) => {
       return false;
     }
   };
-
+  const refreshProfile = async () => {
+    try {
+      const me = await authAPI.refreshProfile(); // chỉ trả data
+      await AsyncStorage.setItem('user', JSON.stringify(me));
+      console.log('Profile refreshed:', me);
+      setUser(me); // hoặc updateUserData(me)
+    } catch (e) {
+      console.log(e);
+    }
+  };
   return (
     <AuthContext.Provider
       value={{
@@ -63,7 +72,8 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
-        updateUserData
+        updateUserData,
+        refreshProfile
       }}
     >
       {children}

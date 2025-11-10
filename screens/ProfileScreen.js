@@ -5,15 +5,17 @@ import {
     StyleSheet,
     TouchableOpacity,
     ScrollView,
-    Image,Modal
+    Image, Modal, Alert
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { decode } from 'html-entities'; // hoặc dùng decodeURIComponent
 import { useAuth } from '../contexts/AuthContext';
 import { learningAPI } from '../services/api';
-import { paymentAPI, authAPI } from '../services/api'; // <-- thêm import
+import { paymentAPI, authAPI } from '../services/api';
+import {useWebSocket} from "../contexts/WebSocketContext"; // <-- thêm import
 export default function ProfileScreen({ navigation }) {
     const { user } = useAuth();
+    const { isConnected, lastPaymentNotification, clearPaymentNotification } = useWebSocket();
     const [stats, setStats] = useState({
         totalWords: 0,
         masteredWords: 0,
@@ -22,8 +24,28 @@ export default function ProfileScreen({ navigation }) {
     const [webUrl, setWebUrl] = useState(null);     // URL thanh toán
     const [showPay, setShowPay] = useState(false);  // modal WebView mở thanh toán
     const [method, setMethod] = useState('qr');     // mặc định QR
-    const [isSyncing, setIsSyncing] = useState(false);
     const [points, setPoints] = useState(user?.totalPoints || 0); // hiển thị sống
+    const [showPaymentNotification, setShowPaymentNotification] = useState(false);
+
+    // 🔥 Lắng nghe payment notification từ WebSocket
+    useEffect(() => {
+        if (lastPaymentNotification) {
+            console.log('📬 New payment notification:', lastPaymentNotification);
+
+            // Hiển thị notification
+            setShowPaymentNotification(true);
+
+            // Tự động ẩn sau 5 giây và clear notification
+            const timer = setTimeout(() => {
+                setShowPaymentNotification(false);
+                // 🔥 Clear notification để tránh hiển thị lại
+                clearPaymentNotification();
+            }, 5000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [lastPaymentNotification]);
+
     useEffect(() => {
         loadStats();
     }, []);
@@ -61,19 +83,11 @@ export default function ProfileScreen({ navigation }) {
         }
     };
 
-    // Đồng bộ điểm sau khi thanh toán (IPN backend đã cộng điểm)
-    const syncPoints = async () => {
-        try {
-            setIsSyncing(true);
-            const me = await authAPI.getProfile(); // /user/me trả về user mới nhất
-            setPoints(me?.totalPoints || 0);
-            setIsSyncing(false);
-            alert('Đồng bộ điểm thành công!');
-        } catch (e) {
-            setIsSyncing(false);
-            console.error(e);
-            alert('Đồng bộ thất bại.');
-        }
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(amount);
     };
     const achievements = [
         {
@@ -112,6 +126,7 @@ export default function ProfileScreen({ navigation }) {
                     >
                         <Text style={styles.closeIcon}>✕</Text>
                     </TouchableOpacity>
+
                     <Text style={styles.headerTitle}>Tài khoản</Text>
                     <TouchableOpacity
                         style={styles.settingsButton}
@@ -120,6 +135,34 @@ export default function ProfileScreen({ navigation }) {
                         <Text style={styles.settingsIcon}>⚙️</Text>
                     </TouchableOpacity>
                 </View>
+
+                {/* 🔥 Payment Success Notification */}
+                {showPaymentNotification && lastPaymentNotification && (
+                    <View style={styles.notificationBanner}>
+                        <View style={styles.notificationContent}>
+                            <Text style={styles.notificationIcon}>
+                                {lastPaymentNotification.pointsAdded ? '🎉' : '❌'}
+                            </Text>
+                            <View style={styles.notificationText}>
+                                <Text style={styles.notificationTitle}>
+                                    {lastPaymentNotification.message}
+                                </Text>
+                                {lastPaymentNotification.success && lastPaymentNotification.pointsAdded && (
+                                    <Text style={styles.notificationDetails}>
+                                        +{lastPaymentNotification.pointsAdded} điểm •
+                                        {formatCurrency(lastPaymentNotification.amountVND)}
+                                    </Text>
+                                )}
+                            </View>
+                        </View>
+                        <TouchableOpacity
+                            onPress={() => setShowPaymentNotification(false)}
+                            style={styles.notificationClose}
+                        >
+                            <Text style={styles.notificationCloseText}>✕</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
 
                 {/* Profile Card */}
                 <View style={styles.profileCard}>
@@ -208,10 +251,6 @@ export default function ProfileScreen({ navigation }) {
                             <Text style={styles.packText}>100.000đ</Text>
                         </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity style={styles.syncBtn} onPress={syncPoints} disabled={isSyncing}>
-                        <Text style={styles.syncText}>{isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ điểm sau khi thanh toán'}</Text>
-                    </TouchableOpacity>
                 </View>
 
                 {/* Achievements */}
@@ -273,6 +312,33 @@ export default function ProfileScreen({ navigation }) {
                             startInLoadingState
                             onNavigationStateChange={(navState) => {
                                 console.log('Current URL:', navState.url);
+
+                                // 🔥 Kiểm tra URL callback từ VNPAY
+                                if (navState.url.includes('/vnpay-return') ||
+                                    navState.url.includes('vnp_ResponseCode=00')) {
+                                    console.log('✅ Thanh toán thành công, đang đóng WebView...');
+
+                                    // Đóng WebView sau 1 giây để user thấy thông báo thành công
+                                    setTimeout(() => {
+                                        setShowPay(false);
+                                        setWebUrl(null);
+
+                                        // Reload lại thông tin user để cập nhật điểm
+                                        loadStats();
+                                    }, 1500);
+                                }
+
+                                // 🔥 Xử lý trường hợp thanh toán thất bại
+                                if (navState.url.includes('vnp_ResponseCode') &&
+                                    !navState.url.includes('vnp_ResponseCode=00')) {
+                                    console.log('❌ Thanh toán thất bại');
+
+                                    setTimeout(() => {
+                                        setShowPay(false);
+                                        setWebUrl(null);
+                                        Alert.alert('Thông báo', 'Thanh toán không thành công. Vui lòng thử lại.');
+                                    }, 1500);
+                                }
                             }}
                             onError={(syntheticEvent) => {
                                 const { nativeEvent } = syntheticEvent;
@@ -325,7 +391,7 @@ const styles = StyleSheet.create({
     },
     profileCard: {
         backgroundColor: '#FFFFFF',
-        marginTop: -30,
+        marginTop: -20, // Giảm từ -30 xuống -20
         marginHorizontal: 16,
         borderRadius: 16,
         padding: 24,
@@ -528,4 +594,53 @@ const styles = StyleSheet.create({
     },
     webTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
 
+    notificationBanner: {
+        backgroundColor: '#FFFFFF',
+        marginHorizontal: 16,
+        marginTop: 12,
+        marginBottom: 8,
+        borderRadius: 12,
+        padding: 16,
+        borderLeftWidth: 4,
+        borderLeftColor: '#10B981',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    notificationContent: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    notificationIcon: {
+        fontSize: 28,
+        marginRight: 12,
+    },
+    notificationText: {
+        flex: 1,
+        paddingRight: 20,
+    },
+    notificationTitle: {
+        color: '#1F2937',
+        fontSize: 15,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    notificationDetails: {
+        color: '#10B981',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    notificationClose: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        padding: 4,
+    },
+    notificationCloseText: {
+        color: '#6B7280',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
 });

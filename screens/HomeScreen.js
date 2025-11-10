@@ -1,5 +1,5 @@
 // HomeScreen.js - Updated with Admin Button
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useCallback  } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
-  Dimensions,
+  Dimensions,ActivityIndicator
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { learningAPI } from '../services/api';
@@ -16,9 +16,9 @@ import { learningAPI } from '../services/api';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
-  const { user, logout } = useAuth();
-  const [stats, setStats] = useState(null);
+  const { user,refreshProfile  } = useAuth();  const [stats, setStats] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);  // <- trạng thái loading nút Profile
 
   useEffect(() => {
     loadStats();
@@ -40,6 +40,28 @@ export default function HomeScreen({ navigation }) {
     await loadStats();
     setRefreshing(false);
   };
+
+  // Ấn Profile: refresh trước rồi mới navigate
+  const handleOpenProfile = useCallback(async () => {
+    setLoadingProfile(true);
+    try {
+      // timeout an toàn 5s để tránh kẹt mạng
+      const withTimeout = (p, ms = 5000) =>
+          Promise.race([
+            p,
+            new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout')), ms)),
+          ]);
+
+      await withTimeout(refreshProfile());
+      navigation.navigate('Profile');
+    } catch (e) {
+      console.log('Refresh profile failed:', e?.message || e);
+      // Vẫn cho vào Profile để người dùng không bị chặn
+      navigation.navigate('Profile');
+    } finally {
+      setLoadingProfile(false);
+    }
+  }, [refreshProfile, navigation]);
 
   const renderBarChart = () => {
     if (!stats?.levels || stats.levels.length === 0) return null;
@@ -107,10 +129,15 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
             )}
             <TouchableOpacity
-                onPress={() => navigation.navigate('Profile')}
-                style={styles.profileButton}
+                onPress={handleOpenProfile}                 // <- dùng handler mới
+                style={[styles.profileButton, loadingProfile && { opacity: 0.7 }]}
+                disabled={loadingProfile}                   // <- tránh double click
             >
-              <Text style={styles.profileIcon}>👤</Text>
+              {loadingProfile ? (
+                  <ActivityIndicator size="small" />
+              ) : (
+                  <Text style={styles.profileIcon}>👤</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -139,6 +166,15 @@ export default function HomeScreen({ navigation }) {
                 <Text style={styles.bannerButtonText}>MỞ NGAY</Text>
               </View>
             </TouchableOpacity>
+        )}
+
+        {/* Admin Badge */}
+        {user?.role === 'admin' && (
+            <View style={styles.adminBadgeContainer}>
+              <View style={styles.adminBadge}>
+                <Text style={styles.adminBadgeText}>👑 QUẢN TRỊ VIÊN</Text>
+              </View>
+            </View>
         )}
 
         {/* Premium Badge - Show for premium users */}
@@ -315,6 +351,23 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   adminBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  premiumBadgeContainer: {
+    padding: 12,
+    paddingTop: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  premiumBadge: {
+    backgroundColor: '#F59E0B',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  premiumBadgeText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold',
