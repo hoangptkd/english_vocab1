@@ -1,4 +1,4 @@
-// HomeScreen.js - Updated version with all features
+// HomeScreen.js - Updated with Admin Button
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -41,7 +41,6 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
-  // Render bar chart
   const renderBarChart = () => {
     if (!stats?.levels || stats.levels.length === 0) return null;
 
@@ -97,24 +96,59 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.logoContainer}>
             <Text style={styles.logo}>MOCHIVOCAB</Text>
           </View>
-          <TouchableOpacity
-              onPress={() => navigation.navigate('Profile')}
-              style={styles.profileButton}
-          >
-            <Text style={styles.profileIcon}>👤</Text>
-          </TouchableOpacity>
+          <View style={styles.headerButtons}>
+            {/* Admin Button - Only show if user is admin */}
+            {user?.role === 'admin' && (
+                <TouchableOpacity
+                    onPress={() => navigation.navigate('AdminDashboard')}
+                    style={styles.adminButton}
+                >
+                  <Text style={styles.adminIcon}>⚙️</Text>
+                </TouchableOpacity>
+            )}
+            <TouchableOpacity
+                onPress={() => navigation.navigate('Profile')}
+                style={styles.profileButton}
+            >
+              <Text style={styles.profileIcon}>👤</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Banner "Mở toàn bộ khóa học" */}
-        <TouchableOpacity style={styles.banner}>
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerIcon}>🎉</Text>
-            <Text style={styles.bannerText}>MỞ TOÀN BỘ KHÓA HỌC</Text>
-          </View>
-          <View style={styles.bannerButton}>
-            <Text style={styles.bannerButtonText}>MỞ NGAY</Text>
-          </View>
-        </TouchableOpacity>
+        {/* Admin Badge */}
+        {user?.role === 'admin' && (
+            <View style={styles.adminBadgeContainer}>
+              <View style={styles.adminBadge}>
+                <Text style={styles.adminBadgeText}>👑 QUẢN TRỊ VIÊN</Text>
+              </View>
+            </View>
+        )}
+
+        {/* Premium Banner - Only show for non-premium users */}
+        {user?.role === 'user' && (
+            <TouchableOpacity
+                style={styles.banner}
+                onPress={() => navigation.navigate('Premium')}
+                activeOpacity={0.8}
+            >
+              <View style={styles.bannerContent}>
+                <Text style={styles.bannerIcon}>🎉</Text>
+                <Text style={styles.bannerText}>MỞ TOÀN BỘ KHÓA HỌC</Text>
+              </View>
+              <View style={styles.bannerButton}>
+                <Text style={styles.bannerButtonText}>MỞ NGAY</Text>
+              </View>
+            </TouchableOpacity>
+        )}
+
+        {/* Premium Badge - Show for premium users */}
+        {user?.role === 'premium' && (
+            <View style={styles.premiumBadgeContainer}>
+              <View style={styles.premiumBadge}>
+                <Text style={styles.premiumBadgeText}>👑 PREMIUM</Text>
+              </View>
+            </View>
+        )}
 
         {stats && (
             <>
@@ -242,6 +276,21 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#F59E0B',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  adminButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adminIcon: {
+    fontSize: 20,
+  },
   profileButton: {
     width: 40,
     height: 40,
@@ -252,6 +301,23 @@ const styles = StyleSheet.create({
   },
   profileIcon: {
     fontSize: 24,
+  },
+  adminBadgeContainer: {
+    padding: 12,
+    paddingTop: 8,
+    backgroundColor: '#FFFFFF',
+  },
+  adminBadge: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  adminBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   banner: {
     backgroundColor: '#FCD34D',

@@ -3,9 +3,11 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 // Sửa API_URL để phù hợp với Android Emulator
+const LAN = '192.168.1.12:3000';
+
 const API_URL = Platform.select({
   android: 'http://10.0.2.2:3000/api', // Android Emulator
-  ios: 'http://localhost:3000/api',     // iOS Simulator
+  ios:     `http://${LAN}/api`,     // iOS Simulator
   default: 'http://localhost:3000/api'  // Web/default
 });
 const api = axios.create({
@@ -33,7 +35,6 @@ api.interceptors.request.use(
 export const authAPI = {
 // Trong file api.js, thêm log để debug
   register: async (email, password, name) => {
-      console.log('Calling register API with:', { email, password, name });
       try {
         // Kiểm tra backend có chạy không
         const ping = await api.get('/');
@@ -83,6 +84,37 @@ export const authAPI = {
     const user = await AsyncStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   },
+
+  changePassword: async (currentPassword, newPassword) => {
+    try {
+      const response = await api.put('/user/changePassword', { currentPassword, newPassword });
+      return response.data; // Trả về thông báo thành công hoặc lỗi
+    } catch (error) {
+      console.error('Change password API error:', error);
+      throw error; // Throw lỗi để xử lý ở nơi gọi API
+    }
+  },
+
+  // Cập nhật profile
+  updateProfile: async (name) => {
+    try {
+      const response = await api.put('/user/profile/update', { name });
+      return response.data; // Trả về thông tin người dùng đã cập nhật
+    } catch (error) {
+      console.error('Update profile API error:', error);
+      throw error; // Throw lỗi để xử lý ở nơi gọi API
+    }
+  },
+
+  updatePremium: async (durationMonths) => {
+    try {
+      const response = await api.put('/user/updatePremium', {premium : "premium", durationMonths });
+      return response.data; // Trả về thông tin người dùng đã cập nhật
+    } catch (error) {
+      console.error('Update premium API error:', error);
+      throw error; // Throw lỗi để xử lý ở nơi gọi API
+    }
+  }
 };
 
 // Vocabulary APIs
@@ -127,4 +159,85 @@ export const learningAPI = {
   },
 };
 
+// Admin APIs
+export const adminAPI = {
+  // Topic Management
+  getTopics: async () => {
+    const response = await api.get('/topics');
+    return response.data;
+  },
+
+  createTopic: async (topicData) => {
+    const response = await api.post('/topics', topicData);
+    return response.data;
+  },
+
+  updateTopic: async (topicId, topicData) => {
+    const response = await api.put(`/topics/${topicId}`, topicData);
+    return response.data;
+  },
+
+  deleteTopic: async (topicId) => {
+    const response = await api.delete(`/topics/${topicId}`);
+    return response.data;
+  },
+
+  // Vocabulary Management
+  getVocabularies: async (params = {}) => {
+    const response = await api.get('vocabulary/search', { params });
+    return response.data;
+  },
+
+  createVocabulary: async (vocabData) => {
+    const response = await api.post('/vocabulary', vocabData);
+    return response.data;
+  },
+
+  updateVocabulary: async (vocabId, vocabData) => {
+    const response = await api.put(`/vocabulary/${vocabId}`, vocabData);
+    return response.data;
+  },
+
+  deleteVocabulary: async (vocabId) => {
+    const response = await api.delete(`/vocabulary/${vocabId}`);
+    return response.data;
+  },
+
+  // User Management
+  getUsers: async (params = {}) => {
+    const response = await api.get('/user/admin/users', { params });
+    return response.data;
+  },
+
+  getUserStatistics: async () => {
+    const response = await api.get('/user/admin/users/statistics');
+    return response.data;
+  },
+
+  getUserById: async (userId) => {
+    const response = await api.get(`/user/admin/users/${userId}`);
+    return response.data;
+  },
+
+  updateUser: async (userId, userData) => {
+    const response = await api.put(`/user/admin/users/${userId}`, userData);
+    return response.data;
+  },
+
+  resetUserPassword: async (userId, newPassword) => {
+    const response = await api.post(`/user/admin/users/${userId}/reset-password`, {
+      newPassword,
+    });
+    return response.data;
+  },
+};
+
+// Thêm module thanh toán VNPAY
+export const paymentAPI = {
+  createTopup: async ({ userId, amountVND, method }) => {
+    const res = await api.post('/payment/create-topup', { userId, amountVND, method });
+    console.log(res)
+    return res.data; // { paymentUrl, orderId, amountVND, points }
+  },
+};
 export default api;

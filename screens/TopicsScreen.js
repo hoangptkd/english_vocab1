@@ -9,23 +9,33 @@ import {
     ActivityIndicator,
     Alert,
 } from 'react-native';
-import { vocabularyAPI } from '../services/api';
+import {adminAPI, vocabularyAPI} from '../services/api';
 
 export default function TopicsScreen({ navigation }) {
     const [topics, setTopics] = useState([]);
     const [loading, setLoading] = useState(true);
-
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10, pages: 1 });
     useEffect(() => {
         loadTopics();
     }, []);
 
     const loadTopics = async () => {
         try {
-            const data = await vocabularyAPI.getTopics();
-            setTopics(data);
+            setLoading(true);
+            const res = await vocabularyAPI.getTopics({ page, limit });
+            const list = Array.isArray(res) ? res : (res?.topics ?? res?.items ?? []);
+            const pg = Array.isArray(res)
+                ? { total: list.length, page, limit, pages: 1 }
+                : (res?.pagination ?? { total: list.length, page, limit, pages: 1 });
+
+            setTopics(list);
+            setPagination(pg);
         } catch (error) {
             console.error('Error loading topics:', error);
-            Alert.alert('Lỗi', 'Không thể tải danh sách chủ đề');
+            Alert.alert('Lỗi', 'Không thể tải danh sách topics');
         } finally {
             setLoading(false);
         }

@@ -9,7 +9,7 @@ import {
     Alert,
     Modal,
 } from 'react-native';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth  } from '../contexts/AuthContext';
 
 export default function SettingsScreen({ navigation }) {
     const { user, logout } = useAuth();
@@ -17,6 +17,7 @@ export default function SettingsScreen({ navigation }) {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [newName, setNewName] = useState(''); // Thêm state cho tên mới
 
     const handleLogout = () => {
         Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
@@ -25,11 +26,9 @@ export default function SettingsScreen({ navigation }) {
                 text: 'Đăng xuất',
                 style: 'destructive',
                 onPress: async () => {
+                    // Chỉ cần gọi logout, AuthContext sẽ tự động handle việc chuyển màn hình
                     await logout();
-                    navigation.reset({
-                        index: 0,
-                        routes: [{ name: 'Login' }],
-                    });
+                    // Không cần navigation.reset vì App.js đã handle conditional rendering
                 },
             },
         ]);
@@ -53,7 +52,7 @@ export default function SettingsScreen({ navigation }) {
 
         try {
             // TODO: Implement change password API
-            // await authAPI.changePassword(currentPassword, newPassword);
+            await authAPI.changePassword(currentPassword, newPassword);
             Alert.alert('Thành công', 'Đổi mật khẩu thành công!');
             setShowChangePasswordModal(false);
             setCurrentPassword('');
@@ -61,6 +60,20 @@ export default function SettingsScreen({ navigation }) {
             setConfirmPassword('');
         } catch (error) {
             Alert.alert('Lỗi', error.response?.data?.message || 'Có lỗi xảy ra');
+        }
+    };
+
+    const handleUpdateProfile = async () => {
+        if (!newName) {
+            Alert.alert('Lỗi', 'Vui lòng nhập tên mới');
+            return;
+        }
+
+        try {
+            const updatedUser = await authAPI.updateProfile(newName);
+            Alert.alert('Thành công', 'Cập nhật tên thành công!');
+        } catch (error) {
+            Alert.alert('Lỗi', 'Có lỗi xảy ra');
         }
     };
 
@@ -135,6 +148,28 @@ export default function SettingsScreen({ navigation }) {
                     </View>
                     <Text style={styles.actionArrow}>›</Text>
                 </TouchableOpacity>
+
+                {/* Change Name Section */}
+                <View style={styles.actionCard}>
+                    <View style={styles.actionIcon}>
+                        <Text style={styles.actionEmoji}>✍️</Text>
+                    </View>
+                    <View style={styles.actionContent}>
+                        <Text style={styles.actionTitle}>Cập nhật tên</Text>
+                        <TextInput
+                            style={styles.input}
+                            placeholder="Nhập tên mới"
+                            value={newName}
+                            onChangeText={setNewName}
+                        />
+                    </View>
+                    <TouchableOpacity
+                        style={styles.modalButton}
+                        onPress={handleUpdateProfile}
+                    >
+                        <Text style={styles.modalButtonText}>Cập nhật</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Account Actions */}

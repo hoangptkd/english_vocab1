@@ -39,6 +39,21 @@ export const AuthProvider = ({ children }) => {
     await authAPI.logout();
     setUser(null);
   };
+  // Hàm mới để update user data
+  const updateUserData = async (newUserData) => {
+    try {
+      // Update local state
+      setUser(newUserData);
+
+      // Update AsyncStorage
+      await AsyncStorage.setItem('user', JSON.stringify(newUserData));
+
+      return true;
+    } catch (error) {
+      console.error('Error updating user data:', error);
+      return false;
+    }
+  };
 
   return (
     <AuthContext.Provider
@@ -48,6 +63,7 @@ export const AuthProvider = ({ children }) => {
         login,
         register,
         logout,
+        updateUserData
       }}
     >
       {children}
