@@ -7,6 +7,8 @@ import { WebSocketProvider } from './contexts/WebSocketContext';
 
 import { ActivityIndicator, View } from 'react-native';
 
+import BottomTabNavigator from './navigation/BottomTabNavigator';
+
 // Screens
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -33,7 +35,7 @@ const AppNavigator = () => {
     if (loading) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#4F46E5" />
+                <ActivityIndicator size="large" color="#10B981" />
             </View>
         );
     }
@@ -67,16 +69,17 @@ const AppNavigator = () => {
                     </>
                 ) : (
                     <>
+                        {/* 🔥 BOTTOM TAB NAVIGATOR - Main navigation */}
                         <Stack.Screen
-                            name="Home"
-                            component={HomeScreen}
-                            options={{ title: 'Trang chủ' }}
+                            name="MainTabs"
+                            component={BottomTabNavigator}
+                            options={{
+                                headerShown: false,
+                            }}
+                            initialParams={{ screen: 'HomeTab' }}
                         />
-                        <Stack.Screen
-                            name="Topics"
-                            component={TopicsScreen}
-                            options={{ title: 'Chọn chủ đề' }}
-                        />
+
+                        {/* 📚 LEARNING SCREENS */}
                         <Stack.Screen
                             name="LearnNew"
                             component={LearnNewScreen}
@@ -87,20 +90,23 @@ const AppNavigator = () => {
                             component={ReviewScreen}
                             options={{ title: 'Ôn tập' }}
                         />
-                        <Stack.Screen
-                            name="Stats"
-                            component={StatsScreen}
-                            options={{ title: 'Thống kê' }}
-                        />
+
+                        {/* 👤 USER SCREENS */}
                         <Stack.Screen
                             name="Profile"
                             component={ProfileScreen}
-                            options={{ headerShown: false }}
+                            options={{
+                                headerShown: false,
+                                presentation: 'modal'
+                            }}
                         />
                         <Stack.Screen
                             name="Settings"
                             component={SettingsScreen}
-                            options={{ headerShown: false }}
+                            options={{
+                                headerShown: false,
+                                presentation: 'modal'
+                            }}
                         />
                         <Stack.Screen
                             name="Premium"
@@ -116,7 +122,8 @@ const AppNavigator = () => {
                                 },
                             }}
                         />
-                        {/* Admin Screens - Only accessible if user is admin */}
+
+                        {/* 👑 ADMIN SCREENS - Only accessible if user is admin */}
                         {user?.role === 'admin' && (
                             <>
                                 <Stack.Screen

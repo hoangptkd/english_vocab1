@@ -5,30 +5,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import HomeScreen from '../screens/HomeScreen';
 import TopicsScreen from '../screens/TopicsScreen';
 import ReviewScreen from '../screens/ReviewScreen';
+import StatsScreen from "../screens/StatsScreen";
+import DictionaryPlaceholderScreen from '../screens/DictionaryPlaceholderScreen';
 
 const Tab = createBottomTabNavigator();
-
-// Placeholder screens (sẽ phát triển sau)
-const DictionaryScreen = () => (
-    <View style={styles.placeholderContainer}>
-        <Text style={styles.placeholderIcon}>📖</Text>
-        <Text style={styles.placeholderTitle}>Tra từ</Text>
-        <Text style={styles.placeholderText}>Tính năng đang phát triển</Text>
-    </View>
-);
 
 const ConversationScreen = () => (
     <View style={styles.placeholderContainer}>
         <Text style={styles.placeholderIcon}>💬</Text>
         <Text style={styles.placeholderTitle}>Hội thoại</Text>
-        <Text style={styles.placeholderText}>Tính năng đang phát triển</Text>
-    </View>
-);
-
-const MochiHubScreen = () => (
-    <View style={styles.placeholderContainer}>
-        <Text style={styles.placeholderIcon}>🌐</Text>
-        <Text style={styles.placeholderTitle}>MochiHub</Text>
         <Text style={styles.placeholderText}>Tính năng đang phát triển</Text>
     </View>
 );
@@ -46,18 +31,17 @@ export default function BottomTabNavigator() {
             }}
         >
             <Tab.Screen
-                name="HomeTab"
-                component={HomeScreen}
+                name="DictionaryTab"
+                component={DictionaryPlaceholderScreen}
                 options={{
                     tabBarLabel: 'Tra từ',
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.iconContainer, focused && styles.iconContainerFocused]}>
-                            <Text style={[styles.tabIcon, { color }]}>🔍</Text>
+                            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.6 }]}>🔍</Text>
                         </View>
                     ),
                 }}
             />
-
             <Tab.Screen
                 name="TopicsTab"
                 component={TopicsScreen}
@@ -65,23 +49,28 @@ export default function BottomTabNavigator() {
                     tabBarLabel: 'Học từ vựng',
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.iconContainer, focused && styles.iconContainerFocused]}>
-                            <Text style={[styles.tabIcon, { color }]}>🎓</Text>
+                            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.6 }]}>🎓</Text>
                         </View>
                     ),
                 }}
             />
-
             <Tab.Screen
-                name="ReviewTab"
-                component={ReviewScreen}
+                name="HomeTab"
+                component={HomeScreen}
                 options={{
                     tabBarLabel: 'Ôn tập từ vựng',
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.iconContainer, focused && styles.iconContainerFocused]}>
-                            <Text style={[styles.tabIcon, { color }]}>📊</Text>
+                            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.6 }]}>📊</Text>
                         </View>
                     ),
                 }}
+                listeners={({ navigation }) => ({
+                    tabPress: (e) => {
+                        // Focus vào HomeTab khi nhấn
+                        navigation.navigate('HomeTab');
+                    },
+                })}
             />
 
             <Tab.Screen
@@ -91,20 +80,19 @@ export default function BottomTabNavigator() {
                     tabBarLabel: 'Hội thoại',
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.iconContainer, focused && styles.iconContainerFocused]}>
-                            <Text style={[styles.tabIcon, { color }]}>💬</Text>
+                            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.6 }]}>💬</Text>
                         </View>
                     ),
                 }}
             />
-
             <Tab.Screen
-                name="MochiHubTab"
-                component={MochiHubScreen}
+                name="StatsTab"
+                component={StatsScreen}
                 options={{
-                    tabBarLabel: 'MochiHub',
+                    tabBarLabel: 'Thống kê',
                     tabBarIcon: ({ color, focused }) => (
                         <View style={[styles.iconContainer, focused && styles.iconContainerFocused]}>
-                            <Text style={[styles.tabIcon, { color }]}>🌐</Text>
+                            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.6 }]}>🌐</Text>
                         </View>
                     ),
                 }}
@@ -128,7 +116,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
     },
     tabBarLabel: {
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: '600',
         marginTop: 4,
     },

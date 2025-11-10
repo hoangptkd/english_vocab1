@@ -1,5 +1,5 @@
-// HomeScreen.js - Updated with Admin Button
-import React, { useState, useEffect,useCallback  } from 'react';
+// HomeScreen.js - Updated with Bottom Navigation
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,10 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
-  Dimensions,ActivityIndicator
+  Dimensions,
+  ActivityIndicator,
+  SafeAreaView,
+  StatusBar
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { learningAPI } from '../services/api';
@@ -16,9 +19,10 @@ import { learningAPI } from '../services/api';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ navigation }) {
-  const { user,refreshProfile  } = useAuth();  const [stats, setStats] = useState(null);
+  const { user, refreshProfile } = useAuth();
+  const [stats, setStats] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingProfile, setLoadingProfile] = useState(false);  // <- trạng thái loading nút Profile
+  const [loadingProfile, setLoadingProfile] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -41,11 +45,9 @@ export default function HomeScreen({ navigation }) {
     setRefreshing(false);
   };
 
-  // Ấn Profile: refresh trước rồi mới navigate
   const handleOpenProfile = useCallback(async () => {
     setLoadingProfile(true);
     try {
-      // timeout an toàn 5s để tránh kẹt mạng
       const withTimeout = (p, ms = 5000) =>
           Promise.race([
             p,
@@ -53,11 +55,11 @@ export default function HomeScreen({ navigation }) {
           ]);
 
       await withTimeout(refreshProfile());
-      navigation.navigate('Profile');
+      // 🔥 Navigate to parent navigator to access Profile modal
+      navigation.getParent()?.navigate('Profile');
     } catch (e) {
       console.log('Refresh profile failed:', e?.message || e);
-      // Vẫn cho vào Profile để người dùng không bị chặn
-      navigation.navigate('Profile');
+      navigation.getParent()?.navigate('Profile');
     } finally {
       setLoadingProfile(false);
     }
@@ -106,202 +108,204 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  // 🔥 Kiểm tra số từ cần ôn tập
+  const dueForReview = stats?.dueForReview || 0;
+  const hasWordsToReview = dueForReview > 0;
+
   return (
-      <ScrollView
-          style={styles.container}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logo}>MOCHIVOCAB</Text>
-          </View>
-          <View style={styles.headerButtons}>
-            {/* Admin Button - Only show if user is admin */}
-            {user?.role === 'admin' && (
-                <TouchableOpacity
-                    onPress={() => navigation.navigate('AdminDashboard')}
-                    style={styles.adminButton}
-                >
-                  <Text style={styles.adminIcon}>⚙️</Text>
-                </TouchableOpacity>
-            )}
-            <TouchableOpacity
-                onPress={handleOpenProfile}                 // <- dùng handler mới
-                style={[styles.profileButton, loadingProfile && { opacity: 0.7 }]}
-                disabled={loadingProfile}                   // <- tránh double click
-            >
-              {loadingProfile ? (
-                  <ActivityIndicator size="small" />
-              ) : (
-                  <Text style={styles.profileIcon}>👤</Text>
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor="#10B981" />
+        <ScrollView
+            style={styles.container}
+            contentContainerStyle={styles.contentContainer}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logo}>MOCHIVOCAB</Text>
+            </View>
+            <View style={styles.headerButtons}>
+              {/* Admin Button - Only show if user is admin */}
+              {user?.role === 'admin' && (
+                  <TouchableOpacity
+                      onPress={() => navigation.getParent()?.navigate('AdminDashboard')}
+                      style={styles.adminButton}
+                  >
+                    <Text style={styles.adminIcon}>⚙️</Text>
+                  </TouchableOpacity>
               )}
-            </TouchableOpacity>
+              <TouchableOpacity
+                  onPress={handleOpenProfile}
+                  style={[styles.profileButton, loadingProfile && { opacity: 0.7 }]}
+                  disabled={loadingProfile}
+              >
+                {loadingProfile ? (
+                    <ActivityIndicator size="small" color="#10B981" />
+                ) : (
+                    <Text style={styles.profileIcon}>👤</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
 
-        {/* Admin Badge */}
-        {user?.role === 'admin' && (
-            <View style={styles.adminBadgeContainer}>
-              <View style={styles.adminBadge}>
-                <Text style={styles.adminBadgeText}>👑 QUẢN TRỊ VIÊN</Text>
+          {/* Premium Banner - Only show for non-premium users */}
+          {user?.role === 'user' && (
+              <TouchableOpacity
+                  style={styles.banner}
+                  onPress={() => navigation.getParent()?.navigate('Premium')}
+                  activeOpacity={0.8}
+              >
+                <View style={styles.bannerContent}>
+                  <Text style={styles.bannerIcon}>🎉</Text>
+                  <Text style={styles.bannerText}>MỞ TOÀN BỘ KHÓA HỌC</Text>
+                </View>
+                <View style={styles.bannerButton}>
+                  <Text style={styles.bannerButtonText}>MỞ NGAY</Text>
+                </View>
+              </TouchableOpacity>
+          )}
+
+          {/* Admin Badge */}
+          {user?.role === 'admin' && (
+              <View style={styles.adminBadgeContainer}>
+                <View style={styles.adminBadge}>
+                  <Text style={styles.adminBadgeText}>👑 QUẢN TRỊ VIÊN</Text>
+                </View>
               </View>
-            </View>
-        )}
+          )}
 
-        {/* Premium Banner - Only show for non-premium users */}
-        {user?.role === 'user' && (
-            <TouchableOpacity
-                style={styles.banner}
-                onPress={() => navigation.navigate('Premium')}
-                activeOpacity={0.8}
-            >
-              <View style={styles.bannerContent}>
-                <Text style={styles.bannerIcon}>🎉</Text>
-                <Text style={styles.bannerText}>MỞ TOÀN BỘ KHÓA HỌC</Text>
+          {/* Premium Badge - Show for premium users */}
+          {user?.role === 'premium' && (
+              <View style={styles.premiumBadgeContainer}>
+                <View style={styles.premiumBadge}>
+                  <Text style={styles.premiumBadgeText}>👑 PREMIUM</Text>
+                </View>
               </View>
-              <View style={styles.bannerButton}>
-                <Text style={styles.bannerButtonText}>MỞ NGAY</Text>
-              </View>
-            </TouchableOpacity>
-        )}
+          )}
 
-        {/* Admin Badge */}
-        {user?.role === 'admin' && (
-            <View style={styles.adminBadgeContainer}>
-              <View style={styles.adminBadge}>
-                <Text style={styles.adminBadgeText}>👑 QUẢN TRỊ VIÊN</Text>
-              </View>
-            </View>
-        )}
-
-        {/* Premium Badge - Show for premium users */}
-        {user?.role === 'premium' && (
-            <View style={styles.premiumBadgeContainer}>
-              <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}>👑 PREMIUM</Text>
-              </View>
-            </View>
-        )}
-
-        {stats && (
-            <>
-              {/* Bar Chart */}
-              {renderBarChart()}
-
-              {/* Thống kê tổng quan */}
-              <View style={styles.statsContainer}>
-                <Text style={styles.sectionTitle}>📈 Thống kê tổng quan</Text>
-
-                <View style={styles.statsGrid}>
-                  <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
-                    <Text style={styles.statNumber}>{stats.statusBreakdown?.learning || 0}</Text>
-                    <Text style={styles.statLabel}>Đang học</Text>
+          {stats && (
+              <>
+                {/* Bar Chart - Giữ lại nhưng thu gọn hơn */}
+                {renderBarChart()}
+                {/* 🔥 Review Status Card - Thay thế Bar Chart */}
+                <View style={styles.reviewStatusCard}>
+                  <View style={styles.reviewStatusHeader}>
+                    <View style={styles.reviewIconContainer}>
+                      <Text style={styles.reviewIcon}>
+                        {hasWordsToReview ? '📚' : '✅'}
+                      </Text>
+                    </View>
+                    <View style={styles.reviewStatusTextContainer}>
+                      {hasWordsToReview ? (
+                          <>
+                            <Text style={styles.reviewStatusTitle}>
+                              Chuẩn bị ôn tập {dueForReview} từ
+                            </Text>
+                            <Text style={styles.reviewStatusSubtitle}>
+                              Đã đến giờ vàng để ôn tập rồi! 🎯
+                            </Text>
+                          </>
+                      ) : (
+                          <>
+                            <Text style={styles.reviewStatusTitle}>
+                              Hết từ để ôn rồi! 🎉
+                            </Text>
+                            <Text style={styles.reviewStatusSubtitle}>
+                              Bạn đã hoàn thành tốt. Tiếp tục học từ mới nhé!
+                            </Text>
+                          </>
+                      )}
+                    </View>
                   </View>
+                </View>
+                {/* 🔥 MAIN ACTION BUTTON - Động dựa trên số từ cần ôn */}
+                <View style={styles.mainActionContainer}>
+                  {hasWordsToReview ? (
+                      <TouchableOpacity
+                          style={[styles.mainActionButton, { backgroundColor: '#F59E0B' }]}
+                          onPress={() => navigation.getParent()?.navigate('Review')}
+                          activeOpacity={0.9}
+                      >
+                        <Text style={styles.mainActionIcon}>🔄</Text>
+                        <Text style={styles.mainActionText}>Ôn tập ngay</Text>
+                      </TouchableOpacity>
+                  ) : (
+                      <TouchableOpacity
+                          style={styles.mainActionButton}
+                          onPress={() => navigation.navigate('TopicsTab')}
+                          activeOpacity={0.9}
+                      >
+                        <Text style={styles.mainActionIcon}>📚</Text>
+                        <Text style={styles.mainActionText}>Học từ mới</Text>
+                      </TouchableOpacity>
+                  )}
+                </View>
 
-                  <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
-                    <Text style={styles.statNumber}>{stats.statusBreakdown?.review || 0}</Text>
-                    <Text style={styles.statLabel}>Cần ôn tập</Text>
-                  </View>
+                {/* Thống kê tổng quan */}
+                <View style={styles.statsContainer}>
+                  <Text style={styles.sectionTitle}>📈 Thống kê tổng quan</Text>
 
-                  <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
-                    <Text style={styles.statNumber}>{stats.statusBreakdown?.mastered || 0}</Text>
-                    <Text style={styles.statLabel}>Đã thuộc</Text>
-                  </View>
+                  <View style={styles.statsGrid}>
+                    <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
+                      <Text style={styles.statNumber}>{stats.statusBreakdown?.learning || 0}</Text>
+                      <Text style={styles.statLabel}>Đang học</Text>
+                    </View>
 
-                  <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>
-                    <Text style={styles.statNumber}>{stats.dueForReview || 0}</Text>
-                    <Text style={styles.statLabel}>Đến giờ ôn</Text>
+                    <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
+                      <Text style={styles.statNumber}>{stats.statusBreakdown?.review || 0}</Text>
+                      <Text style={styles.statLabel}>Cần ôn tập</Text>
+                    </View>
+
+                    <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
+                      <Text style={styles.statNumber}>{stats.statusBreakdown?.mastered || 0}</Text>
+                      <Text style={styles.statLabel}>Đã thuộc</Text>
+                    </View>
+
+                    <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>
+                      <Text style={styles.statNumber}>{stats.dueForReview || 0}</Text>
+                      <Text style={styles.statLabel}>Đến giờ ôn</Text>
+                    </View>
                   </View>
                 </View>
 
-                {stats.dueForReview > 0 && (
-                    <View style={styles.alertBox}>
-                      <Text style={styles.alertText}>
-                        ⏰ Bạn có {stats.dueForReview} từ cần ôn tập ngay!
-                      </Text>
-                    </View>
-                )}
-              </View>
-
-              {/* Các nút hành động */}
-              <View style={styles.actionsContainer}>
-                <Text style={styles.sectionTitle}>🎯 Hôm nay học gì?</Text>
-
-                {/* Nút Học từ mới */}
-                <TouchableOpacity
-                    style={[styles.actionCard, { backgroundColor: '#10B981' }]}
-                    onPress={() => navigation.navigate('Topics')}
-                >
-                  <Text style={styles.actionIcon}>📚</Text>
-                  <View style={styles.actionContent}>
-                    <Text style={styles.actionTitle}>Học từ mới</Text>
-                    <Text style={styles.actionDescription}>
-                      Khám phá từ vựng mới mỗi ngày
-                    </Text>
-                  </View>
-                  <Text style={styles.actionArrow}>›</Text>
-                </TouchableOpacity>
-
-                {/* Nút Ôn tập */}
-                <TouchableOpacity
-                    style={[styles.actionCard, { backgroundColor: '#059669' }]}
-                    onPress={() => navigation.navigate('Review')}
-                >
-                  <Text style={styles.actionIcon}>🔄</Text>
-                  <View style={styles.actionContent}>
-                    <Text style={styles.actionTitle}>Ôn tập</Text>
-                    <Text style={styles.actionDescription}>
-                      Ôn lại theo giờ vàng để nhớ lâu hơn
-                    </Text>
-                  </View>
-                  <Text style={styles.actionArrow}>›</Text>
-                </TouchableOpacity>
-
-                {/* Nút Thống kê chi tiết */}
-                <TouchableOpacity
-                    style={[styles.actionCard, { backgroundColor: '#DC2626' }]}
-                    onPress={() => navigation.navigate('Stats')}
-                >
-                  <Text style={styles.actionIcon}>📈</Text>
-                  <View style={styles.actionContent}>
-                    <Text style={styles.actionTitle}>Thống kê chi tiết</Text>
-                    <Text style={styles.actionDescription}>
-                      Xem tiến trình học tập của bạn
-                    </Text>
-                  </View>
-                  <Text style={styles.actionArrow}>›</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Info box */}
-              <View style={styles.infoBox}>
-                <Text style={styles.infoTitle}>💡 Giờ vàng là gì?</Text>
-                <Text style={styles.infoText}>
-                  Giờ vàng là khoảng thời gian tối ưu để ôn tập từ vựng. Khi bạn học một
-                  từ mới, não bộ sẽ dần quên nó theo thời gian. Ôn tập đúng lúc giúp bạn
-                  ghi nhớ từ lâu hơn và hiệu quả hơn!
-                </Text>
-              </View>
-            </>
-        )}
-      </ScrollView>
+                {/* Info box */}
+                <View style={styles.infoBox}>
+                  <Text style={styles.infoTitle}>💡 Giờ vàng là gì?</Text>
+                  <Text style={styles.infoText}>
+                    Giờ vàng là khoảng thời gian tối ưu để ôn tập từ vựng. Khi bạn học một
+                    từ mới, não bộ sẽ dần quên nó theo thời gian. Ôn tập đúng lúc giúp bạn
+                    ghi nhớ từ lâu hơn và hiệu quả hơn!
+                  </Text>
+                </View>
+              </>
+          )}
+        </ScrollView>
+      </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#10B981',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  contentContainer: {
+    paddingBottom: 100, // Padding để không bị che bởi bottom tab
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    paddingTop: 12,
+    backgroundColor: '#10B981',
   },
   logoContainer: {
     flexDirection: 'row',
@@ -310,7 +314,7 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#F59E0B',
+    color: '#FFFFFF',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -320,7 +324,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -331,7 +335,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#D1FAE5',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -406,8 +410,51 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#F59E0B',
   },
+  // 🔥 REVIEW STATUS CARD
+  reviewStatusCard: {
+    margin: 16,
+    marginTop: 8,
+    padding: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  reviewStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  reviewIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#D1FAE5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  reviewIcon: {
+    fontSize: 32,
+  },
+  reviewStatusTextContainer: {
+    flex: 1,
+  },
+  reviewStatusTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  reviewStatusSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
   chartContainer: {
     margin: 16,
+    marginTop: 8,
     padding: 20,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -470,7 +517,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#6B7280',
+    marginTop: 6,
+  },
+  // 🔥 MAIN ACTION BUTTON
+  mainActionContainer: {
+    paddingHorizontal: 16,
     marginTop: 8,
+  },
+  mainActionButton: {
+    backgroundColor: '#10B981',
+    borderRadius: 16,
+    paddingVertical: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  mainActionIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  mainActionText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  // 🔥 SECONDARY ACTION BUTTON
+  secondaryActionContainer: {
+    paddingHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  secondaryActionButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#10B981',
+  },
+  secondaryActionIcon: {
+    fontSize: 20,
+    marginRight: 10,
+  },
+  secondaryActionText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#10B981',
   },
   statsContainer: {
     padding: 16,
@@ -503,59 +602,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
   },
-  alertBox: {
-    backgroundColor: '#FEF3C7',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#F59E0B',
-  },
-  alertText: {
-    fontSize: 14,
-    color: '#92400E',
-    fontWeight: '600',
-  },
-  actionsContainer: {
-    padding: 16,
-  },
-  actionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderRadius: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  actionIcon: {
-    fontSize: 32,
-    marginRight: 16,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  actionDescription: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.9,
-  },
-  actionArrow: {
-    fontSize: 32,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
   infoBox: {
     margin: 16,
+    marginTop: 8,
     padding: 16,
     backgroundColor: '#EEF2FF',
     borderRadius: 12,
