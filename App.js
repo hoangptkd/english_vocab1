@@ -13,14 +13,15 @@ import BottomTabNavigator from './navigation/BottomTabNavigator';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
-import HomeScreen from './screens/HomeScreen';
-import TopicsScreen from './screens/TopicsScreen';
 import LearnNewScreen from './screens/LearnNewScreen';
 import ReviewScreen from './screens/ReviewScreen';
-import StatsScreen from './screens/StatsScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import PremiumScreen from './screens/PremiumScreen';
+import BattleScreen from './screens/BattleScreen';
+import BattleLobbyScreen from './screens/BattleLobbyScreen';
+import BattleGameScreen from './screens/BattleGameScreen';
+import BattleResultScreen from './screens/BattleResultScreen';
 // Admin Screens
 import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AdminTopicsScreen from './screens/AdminTopicsScreen';
@@ -78,7 +79,26 @@ const AppNavigator = () => {
                             }}
                             initialParams={{ screen: 'HomeTab' }}
                         />
-
+                        <Stack.Screen
+                            name="Battle"
+                            component={BattleScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="BattleLobby"
+                            component={BattleLobbyScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="BattleGame"
+                            component={BattleGameScreen}
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="BattleResult"
+                            component={BattleResultScreen}
+                            options={{ headerShown: false }}
+                        />
                         {/* 📚 LEARNING SCREENS */}
                         <Stack.Screen
                             name="LearnNew"

@@ -7,14 +7,22 @@ import { useAuth } from './AuthContext';
 
 const WebSocketContext = createContext();
 
-// WebSocket URL
-const LAN = '192.168.1.12:3000';
-const SOCKET_URL = Platform.select({
-    android: 'http://10.0.2.2:3000',
-    ios: `http://${LAN}`,
-    default: 'http://localhost:3000'
-});
-
+// // WebSocket URL
+// const LAN = '192.168.1.12:3000';
+// const SOCKET_URL = Platform.select({
+//     android: 'http://10.0.2.2:3000',
+//     ios: `http://${LAN}`,
+//     default: 'http://localhost:3000'
+// });
+// --------- ENV / SOCKET URL ----------
+const PROD_SOCKET_ROOT = 'https://english-vocab-it2k.onrender.com';
+const DEV_SOCKET_ROOT_ANDROID = 'http://10.0.2.2:3000';
+const DEV_SOCKET_ROOT_IOS = 'http://192.168.1.7:3000';
+const DEV_SOCKET_ROOT_WEB = 'http://localhost:3000';
+const SOCKET_URL =
+    __DEV__
+        ? (Platform.OS === 'android' ? DEV_SOCKET_ROOT_ANDROID :  (Platform.OS === 'ios' ? PROD_SOCKET_ROOT : DEV_SOCKET_ROOT_WEB))
+        : PROD_SOCKET_ROOT;
 export const WebSocketProvider  = ({ children }) => {
     const { user, updateUserData } = useAuth();
     const socketRef = useRef(null);

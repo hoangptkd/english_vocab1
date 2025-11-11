@@ -22,6 +22,7 @@ export default function StatsScreen() {
     try {
       const data = await learningAPI.getStats();
       setStats(data);
+      console.log('Stats loaded:', data);
     } catch (error) {
       console.error('Error loading stats:', error);
     } finally {

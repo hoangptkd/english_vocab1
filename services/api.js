@@ -3,13 +3,29 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 // Sửa API_URL để phù hợp với Android Emulator
-const LAN = '192.168.1.12:3000';
+// const LAN = '192.168.1.12:3000';
+//
+// const API_URL = Platform.select({
+//   android: 'http://10.0.2.2:3000/api', // Android Emulator
+//   ios:     `http://${LAN}/api`,     // iOS Simulator
+//   default: 'http://localhost:3000/api'  // Web/default
+// });
+// --------- ENV / BASE URL ----------
+/**
+ * Khi chạy debug (dev), bạn vẫn có thể dùng 10.0.2.2 / LAN.
+ * Khi build phát hành (APKPure), luôn dùng domain HTTPS của Render.
+ */
+const PROD_API_ROOT = 'https://english-vocab-it2k.onrender.com'; // ✅ Render
+const DEV_API_ROOT_ANDROID = 'http://10.0.2.2:3000';
+const DEV_API_ROOT_IOS = 'http://192.168.1.7:3000'; // đổi IP LAN của bạn khi cần
+const DEV_API_ROOT_WEB = 'http://localhost:3000';
+const API_ROOT =
+    __DEV__
+        ? (Platform.OS === 'android' ? DEV_API_ROOT_ANDROID : (Platform.OS === 'ios' ? PROD_API_ROOT : DEV_API_ROOT_WEB))
+        : PROD_API_ROOT;
 
-const API_URL = Platform.select({
-  android: 'http://10.0.2.2:3000/api', // Android Emulator
-  ios:     `http://${LAN}/api`,     // iOS Simulator
-  default: 'http://localhost:3000/api'  // Web/default
-});
+const API_URL = `${API_ROOT}/api`; // mọi API đều qua /api
+console.log(API_URL)
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -249,6 +265,49 @@ export const paymentAPI = {
     const res = await api.post('/payment/create-topup', { userId, amountVND, method });
     console.log(res)
     return res.data; // { paymentUrl, orderId, amountVND, points }
+  },
+};
+
+export const battleAPI = {
+  // Tạo phòng
+  createRoom: async () => {
+    const response = await api.post('/battle/room/create');
+    return response.data;
+  },
+
+  // Tham gia phòng
+  joinRoom: async (roomCode) => {
+    const response = await api.post('/battle/room/join', { roomCode });
+    return response.data;
+  },
+
+  // Lấy thông tin phòng
+  getRoom: async (roomCode) => {
+    const response = await api.get(`/battle/room/${roomCode}`);
+    return response.data;
+  },
+
+  // Bắt đầu game
+  startGame: async (roomCode) => {
+    const response = await api.post('/battle/game/start', { roomCode });
+    return response.data;
+  },
+
+  // Submit câu trả lời
+  submitAnswer: async (roomCode, vocabId, answer, timeSpent) => {
+    const response = await api.post('/battle/game/answer', {
+      roomCode,
+      vocabId,
+      answer,
+      timeSpent
+    });
+    return response.data;
+  },
+
+  // Rời phòng
+  leaveRoom: async (roomCode) => {
+    const response = await api.post('/battle/room/leave', { roomCode });
+    return response.data;
   },
 };
 export default api;

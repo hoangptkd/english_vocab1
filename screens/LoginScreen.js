@@ -29,6 +29,7 @@ export default function LoginScreen({ navigation }) {
     try {
       await login(email, password);
     } catch (error) {
+      console.log(error)
       Alert.alert(
         'Đăng nhập thất bại',
         error.response?.data?.message || 'Có lỗi xảy ra'

@@ -5,7 +5,7 @@ import {
     StyleSheet,
     TouchableOpacity,
     ScrollView,
-    Image, Modal, Alert
+    Image, Modal, Alert, TextInput
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { decode } from 'html-entities'; // hoặc dùng decodeURIComponent
@@ -26,6 +26,7 @@ export default function ProfileScreen({ navigation }) {
     const [method, setMethod] = useState('qr');     // mặc định QR
     const [points, setPoints] = useState(user?.totalPoints || 0); // hiển thị sống
     const [showPaymentNotification, setShowPaymentNotification] = useState(false);
+    const [customAmount, setCustomAmount] = useState('');
 
     // 🔥 Lắng nghe payment notification từ WebSocket
     useEffect(() => {
@@ -98,21 +99,13 @@ export default function ProfileScreen({ navigation }) {
             total: 100,
             color: '#FCD34D',
         },
-        {
-            id: 2,
-            icon: '🏆',
-            title: 'Siêu trí nhớ cấp độ 1',
-            progress: stats.masteredWords,
-            total: 100,
-            color: '#F59E0B',
-        },
-        {
-            id: 3,
-            icon: '🌱',
-            title: 'Bạn đã học tập chăm chỉ',
-            days: stats.currentStreak,
-            color: '#10B981',
-        },
+        // {
+        //     id: 2,
+        //     icon: '🌱',
+        //     title: 'Bạn đã học tập chăm chỉ',
+        //     days: stats.currentStreak,
+        //     color: '#10B981',
+        // },
     ];
 
     return (
@@ -196,23 +189,23 @@ export default function ProfileScreen({ navigation }) {
                     </View>
                 </View>
 
-                {/* Premium Banner */}
-                <View style={styles.premiumBanner}>
-                    <View style={styles.premiumContent}>
-                        <Text style={styles.premiumTitle}>MochiVocab Premium</Text>
-                        <Text style={styles.premiumSubtitle}>
-                            Tài khoản của bạn <Text style={styles.premiumExpired}>đã hết hạn</Text> gia
-                            hạn để tiếp tục học bạn nhé
-                        </Text>
-                        <TouchableOpacity style={styles.premiumButton}>
-                            <Text style={styles.premiumButtonText}>Gia hạn ngay</Text>
-                        </TouchableOpacity>
-                    </View>
-                    <Image
-                        source={{ uri: 'https://via.placeholder.com/120x120' }}
-                        style={styles.premiumIllustration}
-                    />
-                </View>
+                {/*/!* Premium Banner *!/*/}
+                {/*<View style={styles.premiumBanner}>*/}
+                {/*    <View style={styles.premiumContent}>*/}
+                {/*        <Text style={styles.premiumTitle}>MochiVocab Premium</Text>*/}
+                {/*        <Text style={styles.premiumSubtitle}>*/}
+                {/*            Tài khoản của bạn <Text style={styles.premiumExpired}>đã hết hạn</Text> gia*/}
+                {/*            hạn để tiếp tục học bạn nhé*/}
+                {/*        </Text>*/}
+                {/*        <TouchableOpacity style={styles.premiumButton}>*/}
+                {/*            <Text style={styles.premiumButtonText}>Gia hạn ngay</Text>*/}
+                {/*        </TouchableOpacity>*/}
+                {/*    </View>*/}
+                {/*    <Image*/}
+                {/*        source={{ uri: 'https://via.placeholder.com/120x120' }}*/}
+                {/*        style={styles.premiumIllustration}*/}
+                {/*    />*/}
+                {/*</View>*/}
                 {/* Top-up (Nạp điểm) */}
                 <View style={styles.topupSection}>
                     <Text style={styles.sectionTitle}>Nạp điểm (VNPAY)</Text>
@@ -241,14 +234,38 @@ export default function ProfileScreen({ navigation }) {
 
                     {/* Gói nạp nhanh */}
                     <View style={styles.packRow}>
-                        <TouchableOpacity style={[styles.packBtn, {backgroundColor: '#F59E0B'}]} onPress={() => handleTopup(20000)}>
-                            <Text style={styles.packText}>20.000đ</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.packBtn, {backgroundColor: '#F59E0B'}]} onPress={() => handleTopup(50000)}>
-                            <Text style={styles.packText}>50.000đ</Text>
-                        </TouchableOpacity>
                         <TouchableOpacity style={[styles.packBtn, {backgroundColor: '#F59E0B'}]} onPress={() => handleTopup(100000)}>
                             <Text style={styles.packText}>100.000đ</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.packBtn, {backgroundColor: '#F59E0B'}]} onPress={() => handleTopup(200000)}>
+                            <Text style={styles.packText}>200.000đ</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.packBtn, {backgroundColor: '#F59E0B'}]} onPress={() => handleTopup(500000)}>
+                            <Text style={styles.packText}>500.000đ</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {/* Tự nhập số tiền khác */}
+                    <View style={styles.customAmountContainer}>
+                        <TextInput
+                            style={styles.customAmountInput}
+                            placeholder="Nhập số tiền (VNĐ)"
+                            keyboardType="numeric"
+                            value={customAmount}
+                            onChangeText={setCustomAmount}
+                        />
+                        <TouchableOpacity
+                            style={styles.customAmountBtn}
+                            onPress={() => {
+                                const amount = parseInt(customAmount);
+                                if (amount >= 10000) {
+                                    handleTopup(amount);
+                                    setCustomAmount('');
+                                } else {
+                                    Alert.alert('Thông báo', 'Số tiền tối thiểu là 10.000đ');
+                                }
+                            }}
+                        >
+                            <Text style={styles.customAmountBtnText}>Nạp</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -642,5 +659,35 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         fontSize: 20,
         fontWeight: 'bold',
+    },
+    customAmountContainer: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 12,
+    },
+    customAmountInput: {
+        flex: 1,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 14,
+        color: '#1F2937',
+    },
+    customAmountBtn: {
+        backgroundColor: '#10B981',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        minWidth: 80,
+    },
+    customAmountBtnText: {
+        color: '#FFFFFF',
+        fontWeight: 'bold',
+        fontSize: 14,
     },
 });

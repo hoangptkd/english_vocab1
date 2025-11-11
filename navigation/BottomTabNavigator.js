@@ -1,24 +1,43 @@
 // navigation/BottomTabNavigator.js
-import React from 'react';
+import React, {useState} from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, StyleSheet } from 'react-native';
+import {View, Text, StyleSheet, Animated} from 'react-native';
 import HomeScreen from '../screens/HomeScreen';
 import TopicsScreen from '../screens/TopicsScreen';
 import ReviewScreen from '../screens/ReviewScreen';
 import StatsScreen from "../screens/StatsScreen";
 import DictionaryPlaceholderScreen from '../screens/DictionaryPlaceholderScreen';
+import BattleScreen from "../screens/BattleScreen";
 
 const Tab = createBottomTabNavigator();
 
 const ConversationScreen = () => (
     <View style={styles.placeholderContainer}>
         <Text style={styles.placeholderIcon}>💬</Text>
-        <Text style={styles.placeholderTitle}>Hội thoại</Text>
+        <Text style={styles.placeholderTitle}>Thi đấu</Text>
         <Text style={styles.placeholderText}>Tính năng đang phát triển</Text>
     </View>
 );
 
 export default function BottomTabNavigator() {
+    const [scaleAnim] = useState(new Animated.Value(1)); // Animation value for scale effect
+
+    const handleTabPress = () => {
+        return new Promise((resolve) => {
+            Animated.sequence([
+                Animated.timing(scaleAnim, {
+                    toValue: 0.95, // Shrink the icon
+                    duration: 150, // Duration for shrinking
+                    useNativeDriver: true,
+                }),
+                Animated.timing(scaleAnim, {
+                    toValue: 1, // Return to original size
+                    duration: 150, // Duration for expanding back
+                    useNativeDriver: true,
+                })
+            ]).start(() => resolve()); // Resolve the promise once the animation finishes
+        });
+    };
     return (
         <Tab.Navigator
             screenOptions={{
@@ -74,17 +93,28 @@ export default function BottomTabNavigator() {
             />
 
             <Tab.Screen
-                name="ConversationTab"
-                component={ConversationScreen}
+                name="BattleTab"
+                component={BattleScreen}
                 options={{
-                    tabBarLabel: 'Hội thoại',
-                    tabBarIcon: ({ color, focused }) => (
-                        <View style={[styles.iconContainer, focused && styles.iconContainerFocused]}>
-                            <Text style={[styles.tabIcon, { opacity: focused ? 1 : 0.6 }]}>💬</Text>
-                        </View>
+                    tabBarLabel: 'Thi đấu',
+                    tabBarIcon: ({ color, size }) => (
+                        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                            <Text style={{ fontSize: size }}>⚔️</Text>
+                        </Animated.View>
                     ),
+                    tabBarStyle: { display: 'none' }, // Hide BottomTabNavigator when on BattleScreen
                 }}
+                listeners={({ navigation }) => ({
+                    tabPress: async (e) => {
+                        // Apply the animation effect when tab is pressed
+                        await handleTabPress();
+
+                        // Navigate to BattleScreen after the animation completes
+                        navigation.navigate('MainTabs', { screen: 'BattleTab' });
+                    },
+                })}
             />
+
             <Tab.Screen
                 name="StatsTab"
                 component={StatsScreen}
