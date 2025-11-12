@@ -86,8 +86,11 @@ export default function BottomTabNavigator() {
                 }}
                 listeners={({ navigation }) => ({
                     tabPress: (e) => {
-                        // Focus vào HomeTab khi nhấn
-                        navigation.navigate('HomeTab');
+                        // Ngừng hành động mặc định (điều hướng)
+                        e.preventDefault();
+
+                        // Điều hướng lại về HomeTab và truyền tham số reloadStats = true
+                        navigation.navigate('HomeTab', { reloadStats: true });
                     },
                 })}
             />

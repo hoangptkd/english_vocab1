@@ -111,7 +111,10 @@ export default function LearnNewScreen({ navigation, route }) {
         Alert.alert('Hoàn thành', 'Bạn đã học hết tất cả từ trong chủ đề này!', [
           {
             text: 'OK',
-            onPress: () => navigation.navigate('Home')
+            onPress:  () => {
+              // Navigate to Home and trigger reload stats in HomeScreen
+              navigation.navigate('HomeTab', { reloadStats: true });
+            }
           },
         ]);
         return;

@@ -15,10 +15,11 @@ import {
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { learningAPI } from '../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
-export default function HomeScreen({ navigation }) {
+export default function HomeScreen({ navigation, route  }) {
   const { user, refreshProfile } = useAuth();
   const [stats, setStats] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,7 +28,15 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     loadStats();
   }, []);
-
+  // Khi người dùng quay lại màn hình HomeTab, sẽ gọi lại loadStats để làm mới dữ liệu
+  useFocusEffect(
+      useCallback(() => {
+        // Kiểm tra nếu có tham số reloadStats trong route.params
+        if (route?.params?.reloadStats) {
+          loadStats();
+        }
+      }, [route?.params?.reloadStats]) // Điều kiện chỉ gọi lại nếu reloadStats thay đổi
+  );
   const loadStats = async () => {
     try {
       const data = await learningAPI.getStats();

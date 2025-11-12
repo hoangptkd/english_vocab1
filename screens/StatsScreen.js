@@ -61,7 +61,7 @@ export default function StatsScreen() {
       </View>
 
       <View style={styles.mainStatCard}>
-        <Text style={styles.mainStatNumber}>{stats?.total || 0}</Text>
+        <Text style={styles.mainStatNumber}>{stats?.totalWords || 0}</Text>
         <Text style={styles.mainStatLabel}>Tổng số từ đã học</Text>
         <View style={styles.progressBarLarge}>
           <View
@@ -76,14 +76,14 @@ export default function StatsScreen() {
       <View style={styles.statsGrid}>
         <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
           <Text style={styles.statIcon}>📖</Text>
-          <Text style={styles.statNumber}>{stats?.learning || 0}</Text>
-          <Text style={styles.statLabel}>Đang học</Text>
+          <Text style={styles.statNumber}>{stats?.statusBreakdown.learning || 0}</Text>
+          <Text style={styles.statLabel}>Mới</Text>
         </View>
 
         <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
           <Text style={styles.statIcon}>🔄</Text>
-          <Text style={styles.statNumber}>{stats?.review || 0}</Text>
-          <Text style={styles.statLabel}>Cần ôn tập</Text>
+          <Text style={styles.statNumber}>{stats?.statusBreakdown.review || 0}</Text>
+          <Text style={styles.statLabel}>Cần luyện</Text>
         </View>
 
         <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>

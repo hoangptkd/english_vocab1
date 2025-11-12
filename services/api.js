@@ -310,4 +310,49 @@ export const battleAPI = {
     return response.data;
   },
 };
+
+// Thêm vào cuối file api.js
+export const statisticsAPI = {
+  // Lấy thống kê tổng quan hệ thống
+  getSystemStatistics: async (period = 'week') => {
+    const response = await api.get('/statistics/system', { params: { period } });
+    return response.data;
+  },
+
+  // Lấy dữ liệu tăng trưởng người dùng
+  getUserGrowth: async (period = 'week') => {
+    const response = await api.get('/statistics/user-growth', { params: { period } });
+    return response.data;
+  },
+
+  // Lấy phân bố hoạt động học tập
+  getLearningActivity: async () => {
+    const response = await api.get('/statistics/learning-activity');
+    return response.data;
+  },
+
+  // Lấy top topics
+  getTopTopics: async (limit = 5) => {
+    const response = await api.get('/statistics/top-topics', { params: { limit } });
+    return response.data;
+  },
+
+  // Lấy phân bố tiến trình học tập
+  getLearningDistribution: async () => {
+    const response = await api.get('/statistics/learning-distribution');
+    return response.data;
+  },
+
+  // Lấy người dùng hoạt động hàng ngày
+  getDailyActiveUsers: async () => {
+    const response = await api.get('/statistics/daily-active');
+    return response.data;
+  },
+
+  // Lấy các chỉ số nâng cao
+  getAdvancedMetrics: async () => {
+    const response = await api.get('/statistics/advanced-metrics');
+    return response.data;
+  },
+};
 export default api;

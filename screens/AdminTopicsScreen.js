@@ -12,6 +12,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { adminAPI } from '../services/api';
+import {c} from "react/compiler-runtime";
 
 export default function AdminTopicsScreen() {
     const [topics, setTopics] = useState([]);
@@ -70,11 +71,11 @@ export default function AdminTopicsScreen() {
     };
 
     const handleSave = async () => {
-        if (!formData.name || !formData.slug) {
+        if (!formData.name) {
             Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
             return;
         }
-
+        console.log('Saving topic with data:', formData);
         try {
             if (editingTopic) {
                 await adminAPI.updateTopic(editingTopic._id, formData);
@@ -226,13 +227,13 @@ export default function AdminTopicsScreen() {
                             placeholder="Nhập tên topic"
                         />
 
-                        <Text style={styles.label}>Slug *</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={formData.slug}
-                            onChangeText={(text) => setFormData({ ...formData, slug: text })}
-                            placeholder="vi-du-slug"
-                        />
+                        {/*<Text style={styles.label}>Slug *</Text>*/}
+                        {/*<TextInput*/}
+                        {/*    style={styles.input}*/}
+                        {/*    value={formData.slug}*/}
+                        {/*    onChangeText={(text) => setFormData({ ...formData, slug: text })}*/}
+                        {/*    placeholder="vi-du-slug"*/}
+                        {/*/>*/}
 
                         <Text style={styles.label}>Mô tả</Text>
                         <TextInput

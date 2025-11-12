@@ -27,7 +27,7 @@ import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import AdminTopicsScreen from './screens/AdminTopicsScreen';
 import AdminVocabularyScreen from './screens/AdminVocabularyScreen';
 import AdminUsersScreen from './screens/AdminUsersScreen';
-
+import AdminStatisticsScreen from './screens/AdminStatisticsScreen';
 const Stack = createNativeStackNavigator();
 
 const AppNavigator = () => {
@@ -175,6 +175,14 @@ const AppNavigator = () => {
                                     component={AdminUsersScreen}
                                     options={{
                                         title: 'Quản lý Users',
+                                        headerStyle: { backgroundColor: '#F59E0B' },
+                                    }}
+                                />
+                                <Stack.Screen
+                                    name="AdminStatistics"
+                                    component={AdminStatisticsScreen}
+                                    options={{
+                                        title: 'Thống kê hệ thống',
                                         headerStyle: { backgroundColor: '#F59E0B' },
                                     }}
                                 />
