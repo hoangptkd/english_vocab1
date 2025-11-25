@@ -6,29 +6,180 @@ import {
   TouchableOpacity,
   Animated,
   Alert,
+  TextInput,
 } from 'react-native';
 import { vocabularyAPI, learningAPI } from '../services/api';
+import {AudioButton, AutoDownloadAudio} from '../components/AudioButton';
+import AudioService from '../services/AudioService';
 
+// ============= QUIZ METHOD CONFIGURATIONS =============
+const QUIZ_METHODS = {
+  MULTIPLE_CHOICE_WORD_TO_MEANING: {
+    id: 'mc_word_meaning',
+    name: 'Trắc nghiệm: Word → Meaning',
+    difficulty: 1,
+    description: 'Chọn nghĩa đúng của từ',
+    minRepetition: 0,
+    autoPlayAudio: true, // Tự động phát âm khi hiển thị
+  },
+  MULTIPLE_CHOICE_MEANING_TO_WORD: {
+    id: 'mc_meaning_word',
+    name: 'Trắc nghiệm: Meaning → Word',
+    difficulty: 2,
+    description: 'Chọn từ đúng theo nghĩa',
+    minRepetition: 2,
+    autoPlayAudio: false, // Không tự động phát (người dùng nhấn button)
+  },
+  FILL_IN_BLANK: {
+    id: 'fill_blank',
+    name: 'Điền từ',
+    difficulty: 3,
+    description: 'Điền từ vào chỗ trống',
+    minRepetition: 4,
+    autoPlayAudio: false,
+  },
+  SENTENCE_COMPLETION: {
+    id: 'sentence_completion',
+    name: 'Hoàn thành câu',
+    difficulty: 4,
+    description: 'Viết từ đúng trong câu',
+    minRepetition: 6,
+    autoPlayAudio: false,
+  },
+};
+
+// ============= QUIZ METHOD SELECTOR =============
+const selectQuizMethod = (repetitionCount, availableMethods = null) => {
+  const methods = availableMethods || Object.values(QUIZ_METHODS).filter(m => !m.isExtension);
+
+  const eligibleMethods = methods.filter(
+      method => repetitionCount >= method.minRepetition
+  );
+
+  if (eligibleMethods.length === 0) {
+    return methods[0];
+  }
+
+  return eligibleMethods[Math.floor(Math.random() * eligibleMethods.length)];
+};
+
+// ============= QUIZ GENERATORS =============
+const QuizGenerators = {
+  [QUIZ_METHODS.MULTIPLE_CHOICE_WORD_TO_MEANING.id]: (vocabs, currentIndex) => {
+    const currentVocab = vocabs[currentIndex].vocabId;
+    const correctAnswer = currentVocab.meaning;
+
+    const wrongAnswers = vocabs
+        .filter((v, idx) => idx !== currentIndex && v.vocabId)
+        .map(v => v.vocabId.meaning)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+
+    const options = [...wrongAnswers, correctAnswer]
+        .sort(() => Math.random() - 0.5);
+
+    return {
+      question: currentVocab.word,
+      questionLabel: 'Nghĩa của từ này là gì?',
+      options,
+      correctAnswer,
+      hint: currentVocab.pronunciation,
+      type: 'multiple_choice',
+      audioWord: currentVocab.word, // Từ cần phát âm
+    };
+  },
+
+  [QUIZ_METHODS.MULTIPLE_CHOICE_MEANING_TO_WORD.id]: (vocabs, currentIndex) => {
+    const currentVocab = vocabs[currentIndex].vocabId;
+    const correctAnswer = currentVocab.word;
+
+    const wrongAnswers = vocabs
+        .filter((v, idx) => idx !== currentIndex && v.vocabId)
+        .map(v => v.vocabId.word)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3);
+
+    const options = [...wrongAnswers, correctAnswer]
+        .sort(() => Math.random() - 0.5);
+
+    return {
+      question: currentVocab.meaning,
+      questionLabel: 'Từ tiếng Anh nào có nghĩa này?',
+      options,
+      correctAnswer,
+      hint: currentVocab.pronunciation,
+      type: 'multiple_choice',
+      audioWord: currentVocab.word,
+    };
+  },
+
+  [QUIZ_METHODS.FILL_IN_BLANK.id]: (vocabs, currentIndex) => {
+    const currentVocab = vocabs[currentIndex].vocabId;
+    let sentence = currentVocab.example || `The word means "${currentVocab.meaning}"`;
+
+    const wordRegex = new RegExp(`\\b${currentVocab.word}\\b`, 'gi');
+    const blankedSentence = sentence.replace(wordRegex, '______');
+
+    return {
+      question: blankedSentence,
+      questionLabel: 'Điền từ vào chỗ trống',
+      correctAnswer: currentVocab.word.toLowerCase(),
+      hint: `Nghĩa: ${currentVocab.meaning}`,
+      type: 'fill_blank',
+      audioWord: currentVocab.word,
+    };
+  },
+
+  [QUIZ_METHODS.SENTENCE_COMPLETION.id]: (vocabs, currentIndex) => {
+    const currentVocab = vocabs[currentIndex].vocabId;
+
+    let sentence = currentVocab.example;
+    if (!sentence) {
+      sentence = `I need to use the word that means "${currentVocab.meaning}" here: ______`;
+    } else {
+      const wordRegex = new RegExp(`\\b${currentVocab.word}\\b`, 'gi');
+      sentence = sentence.replace(wordRegex, '______');
+    }
+
+    return {
+      question: sentence,
+      questionLabel: 'Viết từ đúng để hoàn thành câu',
+      correctAnswer: currentVocab.word.toLowerCase(),
+      hint: `${currentVocab.pronunciation || ''} - Nghĩa: ${currentVocab.meaning}`,
+      type: 'sentence_completion',
+      audioWord: currentVocab.word,
+    };
+  },
+};
+
+// ============= MAIN COMPONENT =============
 export default function ReviewScreen() {
   const [vocabs, setVocabs] = useState([]);
   const [incorrectVocabs, setIncorrectVocabs] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [textAnswer, setTextAnswer] = useState('');
   const [showResult, setShowResult] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
-  const [options, setOptions] = useState([]);
+  const [currentQuiz, setCurrentQuiz] = useState(null);
+  const [currentMethod, setCurrentMethod] = useState(null);
 
   const fadeAnim = new Animated.Value(1);
   const scaleAnim = new Animated.Value(1);
 
   useEffect(() => {
     loadVocabs();
+
+    // Cleanup audio khi unmount
+    return () => {
+      AudioService.stop();
+    };
   }, []);
 
   useEffect(() => {
     if (vocabs.length > 0 && currentIndex < vocabs.length) {
-      generateOptions();
+      generateQuiz();
     }
   }, [currentIndex, vocabs]);
 
@@ -43,26 +194,37 @@ export default function ReviewScreen() {
     }
   };
 
-  const generateOptions = () => {
-    if (!vocabs[currentIndex]) return;
+  const generateQuiz = () => {
+    if (!vocabs[currentIndex]?.vocabId) return;
 
-    const currentVocab = vocabs[currentIndex].vocabId;
-    if (!currentVocab) return;
+    const vocab = vocabs[currentIndex];
+    const repetitionCount = vocab.repetitionCount || 0;
 
-    const correctAnswer = currentVocab.meaning;
+    const method = selectQuizMethod(repetitionCount);
+    setCurrentMethod(method);
 
-    // Lấy 3 đáp án sai từ các từ khác
-    const wrongAnswers = vocabs
-        .filter((v, idx) => idx !== currentIndex && v.vocabId)
-        .map(v => v.vocabId.meaning)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
+    const generator = QuizGenerators[method.id];
+    if (generator) {
+      const quiz = generator(vocabs, currentIndex);
+      setCurrentQuiz(quiz);
+    }
+  };
 
-    // Trộn đáp án đúng vào
-    const allOptions = [...wrongAnswers, correctAnswer]
-        .sort(() => Math.random() - 0.5);
+  const checkAnswer = (userAnswer) => {
+    if (!currentQuiz) return false;
 
-    setOptions(allOptions);
+    const correct = currentQuiz.correctAnswer.toLowerCase();
+    const user = userAnswer.toLowerCase().trim();
+
+    if (currentQuiz.type !== 'multiple_choice') {
+      if (user === correct) return true;
+
+      const normalizedCorrect = correct.replace(/[^\w]/g, '');
+      const normalizedUser = user.replace(/[^\w]/g, '');
+      return normalizedUser === normalizedCorrect;
+    }
+
+    return user === correct;
   };
 
   const handleAnswerSelect = async (answer) => {
@@ -71,11 +233,18 @@ export default function ReviewScreen() {
     const currentVocab = vocabs[currentIndex].vocabId;
     if (!currentVocab) return;
 
-    const correct = answer === currentVocab.meaning;
+    const correct = checkAnswer(answer);
 
     setSelectedAnswer(answer);
     setIsCorrect(correct);
     setShowResult(true);
+
+    // 🔊 PHÁT ÂM THANH KHI CHỌN ĐÁP ÁN
+    try {
+      await AudioService.playSmart(currentQuiz.audioWord, { language: 'en-US' });
+    } catch (error) {
+      console.error('Audio playback failed:', error);
+    }
 
     // Hiệu ứng rung nếu sai
     if (!correct) {
@@ -97,7 +266,6 @@ export default function ReviewScreen() {
         }),
       ]).start();
 
-      // Thêm vào danh sách cần ôn lại (chỉ thêm nếu chưa có)
       const isDuplicate = incorrectVocabs.some(
           v => v.vocabId._id === currentVocab._id
       );
@@ -113,21 +281,27 @@ export default function ReviewScreen() {
       console.error('Không thể cập nhật tiến trình:', error);
     }
 
-    // Tự động chuyển sang câu tiếp theo sau 1.5s
+    // Tự động chuyển sang câu tiếp theo
     setTimeout(() => {
       handleNext();
     }, 1500);
   };
 
+  const handleTextSubmit = () => {
+    if (!textAnswer.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập câu trả lời');
+      return;
+    }
+    handleAnswerSelect(textAnswer);
+  };
+
   const handleNext = () => {
-    // Hiệu ứng fade out
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
       if (currentIndex >= vocabs.length - 1) {
-        // Nếu còn từ sai, cho ôn lại
         if (incorrectVocabs.length > 0) {
           const vocabsToReview = [...incorrectVocabs];
           Alert.alert(
@@ -140,10 +314,7 @@ export default function ReviewScreen() {
                     setIncorrectVocabs([]);
                     setCurrentIndex(0);
                     setVocabs(vocabsToReview);
-                    setSelectedAnswer(null);
-                    setShowResult(false);
-                    setIsCorrect(false);
-                    fadeAnim.setValue(1);
+                    resetCard();
                   },
                 },
               ]
@@ -162,6 +333,7 @@ export default function ReviewScreen() {
 
   const resetCard = () => {
     setSelectedAnswer(null);
+    setTextAnswer('');
     setShowResult(false);
     setIsCorrect(false);
     fadeAnim.setValue(0);
@@ -172,40 +344,148 @@ export default function ReviewScreen() {
     }).start();
   };
 
-  const getOptionStyle = (option) => {
-    if (!showResult) {
-      return selectedAnswer === option ? styles.optionSelected : styles.option;
-    }
+  // ============= RENDER HELPERS =============
+  const renderMultipleChoice = () => {
+    if (!currentQuiz?.options) return null;
 
-    const currentVocab = vocabs[currentIndex]?.vocabId;
-    if (!currentVocab) return styles.option;
+    return (
+        <View style={styles.optionsContainer}>
+          {currentQuiz.options.map((option, index) => {
+            const isSelected = selectedAnswer === option;
+            const isCorrectOption = showResult && option === currentQuiz.correctAnswer;
+            const isWrongOption = showResult && isSelected && !isCorrect;
 
-    if (option === currentVocab.meaning) {
-      return styles.optionCorrect;
-    }
-    if (option === selectedAnswer && !isCorrect) {
-      return styles.optionWrong;
-    }
-    return styles.optionDisabled;
+            let optionStyle = styles.option;
+            let textStyle = styles.optionText;
+
+            if (!showResult && isSelected) {
+              optionStyle = styles.optionSelected;
+              textStyle = styles.optionTextSelected;
+            } else if (isCorrectOption) {
+              optionStyle = styles.optionCorrect;
+              textStyle = styles.optionTextCorrect;
+            } else if (isWrongOption) {
+              optionStyle = styles.optionWrong;
+              textStyle = styles.optionTextWrong;
+            } else if (showResult) {
+              optionStyle = styles.optionDisabled;
+              textStyle = styles.optionTextDisabled;
+            }
+
+            return (
+                <TouchableOpacity
+                    key={index}
+                    style={optionStyle}
+                    onPress={() => handleAnswerSelect(option)}
+                    disabled={showResult}
+                    activeOpacity={0.7}
+                >
+                  <View style={styles.optionContent}>
+                    <Text style={styles.optionNumber}>
+                      {String.fromCharCode(65 + index)}.
+                    </Text>
+                    <Text style={textStyle}>{option}</Text>
+                  </View>
+                  {isCorrectOption && <Text style={styles.checkIcon}>✓</Text>}
+                  {isWrongOption && <Text style={styles.crossIcon}>✗</Text>}
+                </TouchableOpacity>
+            );
+          })}
+        </View>
+    );
   };
 
-  const getOptionTextStyle = (option) => {
-    if (!showResult) {
-      return selectedAnswer === option ? styles.optionTextSelected : styles.optionText;
-    }
-
-    const currentVocab = vocabs[currentIndex]?.vocabId;
-    if (!currentVocab) return styles.optionText;
-
-    if (option === currentVocab.meaning) {
-      return styles.optionTextCorrect;
-    }
-    if (option === selectedAnswer && !isCorrect) {
-      return styles.optionTextWrong;
-    }
-    return styles.optionTextDisabled;
+  const renderTextInput = () => {
+    return (
+        <View style={styles.textInputContainer}>
+          <TextInput
+              style={[
+                styles.textInput,
+                showResult && (isCorrect ? styles.textInputCorrect : styles.textInputWrong)
+              ]}
+              value={textAnswer}
+              onChangeText={setTextAnswer}
+              placeholder="Nhập câu trả lời..."
+              placeholderTextColor="#9CA3AF"
+              editable={!showResult}
+              autoCapitalize="none"
+              autoCorrect={false}
+          />
+          {!showResult && (
+              <TouchableOpacity
+                  style={styles.submitButton}
+                  onPress={handleTextSubmit}
+              >
+                <Text style={styles.submitButtonText}>Trả lời</Text>
+              </TouchableOpacity>
+          )}
+          {showResult && (
+              <View style={styles.answerFeedback}>
+                {isCorrect ? (
+                    <Text style={styles.feedbackCorrect}>✓ Chính xác!</Text>
+                ) : (
+                    <View>
+                      <Text style={styles.feedbackWrong}>✗ Chưa đúng</Text>
+                      <Text style={styles.correctAnswerText}>
+                        Đáp án: {currentQuiz.correctAnswer}
+                      </Text>
+                    </View>
+                )}
+              </View>
+          )}
+        </View>
+    );
   };
 
+  const renderQuiz = () => {
+    if (!currentQuiz) return null;
+
+    return (
+        <>
+          <View style={styles.questionCard}>
+            <View style={styles.methodBadge}>
+              <Text style={styles.methodBadgeText}>
+                {currentMethod?.name}
+              </Text>
+              <Text style={styles.difficultyBadge}>
+                {'⭐'.repeat(currentMethod?.difficulty || 1)}
+              </Text>
+            </View>
+
+            <Text style={styles.questionLabel}>{currentQuiz.questionLabel}</Text>
+
+            {/* 🔊 QUESTION WITH AUDIO BUTTON */}
+            <View style={styles.questionWithAudio}>
+              <Text style={styles.wordText}>{currentQuiz.question}</Text>
+              <AudioButton
+                  word={currentQuiz.audioWord}
+                  language="en-US"
+                  size="medium"
+              />
+            </View>
+
+            {currentQuiz.hint && (
+                <Text style={styles.phonetic}>{currentQuiz.hint}</Text>
+            )}
+
+            {/* 🔊 AUTO-PLAY AUDIO (nếu method yêu cầu) */}
+              {currentMethod?.autoPlayAudio && (
+                  <AutoDownloadAudio
+                      word={currentQuiz.audioWord}
+                      language="en-US"
+                  />
+              )}
+          </View>
+
+          {currentQuiz.type === 'multiple_choice'
+              ? renderMultipleChoice()
+              : renderTextInput()
+          }
+        </>
+    );
+  };
+
+  // ============= MAIN RENDER =============
   if (loading) {
     return (
         <View style={styles.container}>
@@ -239,15 +519,15 @@ export default function ReviewScreen() {
   return (
       <View style={styles.container}>
         <View style={styles.progressBar}>
-          <View
-              style={[styles.progressFill, { width: `${progress}%` }]}
-          />
+          <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
 
         <Text style={styles.counter}>
           {currentIndex + 1} / {vocabs.length}
           {incorrectVocabs.length > 0 && (
-              <Text style={styles.incorrectCount}> ({incorrectVocabs.length} cần ôn lại)</Text>
+              <Text style={styles.incorrectCount}>
+                {' '}({incorrectVocabs.length} cần ôn lại)
+              </Text>
           )}
         </Text>
 
@@ -260,38 +540,9 @@ export default function ReviewScreen() {
               },
             ]}
         >
-          <View style={styles.questionCard}>
-            <Text style={styles.questionLabel}>Nghĩa của từ này là gì?</Text>
-            <Text style={styles.wordText}>{currentVocab.word}</Text>
-            {currentVocab.pronunciation && (
-                <Text style={styles.phonetic}>{currentVocab.pronunciation}</Text>
-            )}
-          </View>
+          {renderQuiz()}
 
-          <View style={styles.optionsContainer}>
-            {options.map((option, index) => (
-                <TouchableOpacity
-                    key={index}
-                    style={getOptionStyle(option)}
-                    onPress={() => handleAnswerSelect(option)}
-                    disabled={showResult}
-                    activeOpacity={0.7}
-                >
-                  <View style={styles.optionContent}>
-                    <Text style={styles.optionNumber}>{String.fromCharCode(65 + index)}.</Text>
-                    <Text style={getOptionTextStyle(option)}>{option}</Text>
-                  </View>
-                  {showResult && option === currentVocab.meaning && (
-                      <Text style={styles.checkIcon}>✓</Text>
-                  )}
-                  {showResult && option === selectedAnswer && !isCorrect && (
-                      <Text style={styles.crossIcon}>✗</Text>
-                  )}
-                </TouchableOpacity>
-            ))}
-          </View>
-
-          {showResult && (
+          {showResult && currentVocab.example && (
               <Animated.View style={styles.resultContainer}>
                 {isCorrect ? (
                     <View style={styles.resultCorrect}>
@@ -302,11 +553,9 @@ export default function ReviewScreen() {
                     <View style={styles.resultWrong}>
                       <Text style={styles.resultIcon}>💪</Text>
                       <Text style={styles.resultText}>Ôn lại nhé!</Text>
-                      {currentVocab.example && (
-                          <Text style={styles.exampleText}>
-                            Ví dụ: {currentVocab.example}
-                          </Text>
-                      )}
+                      <Text style={styles.exampleText}>
+                        Ví dụ: {currentVocab.example}
+                      </Text>
                     </View>
                 )}
               </Animated.View>
@@ -316,6 +565,7 @@ export default function ReviewScreen() {
   );
 }
 
+// ============= STYLES =============
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -344,7 +594,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#4F46E5',
     borderRadius: 2,
-    transition: 'width 0.3s ease',
   },
   counter: {
     textAlign: 'center',
@@ -371,20 +620,45 @@ const styles = StyleSheet.create({
     elevation: 3,
     marginBottom: 24,
   },
+  methodBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 16,
+  },
+  methodBadgeText: {
+    fontSize: 12,
+    color: '#4F46E5',
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  difficultyBadge: {
+    fontSize: 10,
+  },
   questionLabel: {
     fontSize: 14,
     color: '#6B7280',
     marginBottom: 12,
   },
-  wordText: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    color: '#1F2937',
+  questionWithAudio: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
     marginBottom: 8,
   },
+  wordText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
   phonetic: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#6B7280',
+    textAlign: 'center',
   },
   optionsContainer: {
     gap: 12,
@@ -489,6 +763,59 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#EF4444',
     fontWeight: 'bold',
+  },
+  textInputContainer: {
+    gap: 12,
+  },
+  textInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    fontSize: 16,
+    color: '#1F2937',
+  },
+  textInputCorrect: {
+    borderColor: '#10B981',
+    backgroundColor: '#D1FAE5',
+  },
+  textInputWrong: {
+    borderColor: '#EF4444',
+    backgroundColor: '#FEE2E2',
+  },
+  submitButton: {
+    backgroundColor: '#4F46E5',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  answerFeedback: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  feedbackCorrect: {
+    fontSize: 18,
+    color: '#10B981',
+    fontWeight: 'bold',
+  },
+  feedbackWrong: {
+    fontSize: 18,
+    color: '#EF4444',
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  correctAnswerText: {
+    fontSize: 16,
+    color: '#1F2937',
+    textAlign: 'center',
   },
   resultContainer: {
     marginTop: 20,

@@ -24,13 +24,30 @@
         "backgroundColor": "#ffffff"
       },
       "permissions": [],
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "usesCleartextTraffic": true,
+      "networkSecurityConfig": {
+        "cleartextTrafficPermitted": true,
+        "domain": [
+          {
+            "domain": "10.0.2.2",
+            "includeSubdomains": true
+          }
+        ]
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-file-system",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos.",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos."
+        }
+      ]
     ],
     "extra": {
       "router": {},

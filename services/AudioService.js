@@ -140,8 +140,31 @@ class AudioService {
 
             // Trường hợp 2: Backend trả audio stream
             console.log("🎵 Backend returned raw audio stream");
-            const localUri = await this.downloadAndCache(cacheKey, apiUrl);
-            return localUri;
+            const filename = `${cacheKey}.mp3`;
+            const file = new File(this.cacheDirectory, filename);
+            const arrayBuffer = await response.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            console.log('📊 Downloaded bytes:', uint8Array.length);
+
+            // Write file
+            await file.write(uint8Array);
+
+            console.log('✅ File written successfully');
+
+            // Verify file exists
+            if (!file.exists) {
+                throw new Error('File write failed - file does not exist');
+            }
+
+            await AsyncStorage.setItem(
+                `audio_meta_${cacheKey}`,
+                JSON.stringify({
+                    uri: file.uri,
+                    timestamp: Date.now(),
+                })
+            );
+            // const localUri = await this.downloadAndCache(cacheKey, apiUrl);
+            return file.uri;
 
         } catch (error) {
             console.error("Failed to get pre-recorded audio:", error);
@@ -198,16 +221,6 @@ class AudioService {
             await this.sound.stopAsync();
             await this.sound.unloadAsync();
             this.sound = null;
-        }
-    }
-
-    // Dừng phát
-    async stop() {
-        if (this.player) {
-            await this.player.pause();
-            await this.player.remove();
-            this.player = null;
-            this.isPlaying = false;
         }
     }
 
@@ -309,99 +322,6 @@ class AudioService {
             }
         } catch (error) {
             console.error('Failed to delete cached audio:', error);
-        }
-    }
-
-    // Cleanup old cache
-    async cleanupCache() {
-        try {
-            const dir = this.cacheDirectory;
-            if (!dir.exists) return;
-
-            const items = dir.list(); // sync
-            let totalSize = 0;
-            const fileInfos = [];
-
-            for (const item of items) {
-                if (item instanceof File) {
-                    totalSize += item.size;
-                    fileInfos.push({
-                        file: item,
-                        size: item.size,
-                        modificationTime: item.modificationTime,
-                    });
-                }
-            }
-
-            if (totalSize > AUDIO_CONFIG.CACHE.maxSize) {
-                fileInfos.sort((a, b) => a.modificationTime - b.modificationTime);
-
-                let freedSize = 0;
-                const targetSize = AUDIO_CONFIG.CACHE.maxSize * 0.8;
-
-                for (const info of fileInfos) {
-                    if (totalSize - freedSize <= targetSize) break;
-                    info.file.delete();
-                    freedSize += info.size;
-                    console.log(`🗑️ Deleted old cache: ${info.file.uri}`);
-                }
-
-                console.log(`✅ Cache cleanup done. Freed ${(freedSize / 1024 / 1024).toFixed(2)}MB`);
-            }
-        } catch (error) {
-            console.error('Cache cleanup failed:', error);
-        }
-    }
-
-    // Get cache stats
-    async getCacheStats() {
-        try {
-            const dir = this.cacheDirectory;
-            if (!dir.exists) return;
-
-            const files = await dir.list();
-            let totalSize = 0;
-
-            for (const filename of files) {
-                const fileUri = `${dirUri}${filename}`;
-                const file = new FileSystem.File(fileUri);
-
-                const fileExists = await file.exists();
-                if (!fileExists) continue;
-
-                const info = await file.getInfo();
-                totalSize += info.size;
-            }
-
-            return {
-                files: files.length,
-                totalSize,
-                totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
-            };
-        } catch (error) {
-            console.error('Error getting cache stats:', error);
-            return { files: 0, totalSize: 0, totalSizeMB: 0 };
-        }
-    }
-
-    // Clear all cache
-    async clearAllCache() {
-        try {
-            const dir = this.cacheDirectory;
-            if (!dir.exists) return;
-
-            // Delete entire directory and recreate
-            await dir.delete();
-            await dir.create();
-
-            // Clear all metadata from AsyncStorage
-            const keys = await AsyncStorage.getAllKeys();
-            const audioKeys = keys.filter(key => key.startsWith('audio_meta_'));
-            await AsyncStorage.multiRemove(audioKeys);
-
-            console.log('✅ All cache cleared');
-        } catch (error) {
-            console.error('Error clearing cache:', error);
         }
     }
 }

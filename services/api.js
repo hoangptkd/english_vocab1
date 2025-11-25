@@ -355,4 +355,31 @@ export const statisticsAPI = {
     return response.data;
   },
 };
+
+export const audioAPI = {
+  // Get audio URL for a word
+  getWordAudio: async (word, language = 'en-US') => {
+    const response = await api.get(`/audio/word/${word}`, {
+      params: { language }
+    });
+    return response.data;
+  },
+
+  // Generate TTS audio
+  generateTTS: async (text, options = {}) => {
+    const response = await api.get('/audio/tts', {
+      params: { text, ...options }
+    });
+    return response.data;
+  },
+
+  // Batch pre-generate audio
+  batchGenerate: async (words, language = 'en-US') => {
+    const response = await api.post('/audio/batch', {
+      words,
+      language
+    });
+    return response.data;
+  }
+};
 export default api;
