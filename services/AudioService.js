@@ -4,7 +4,7 @@
 import { Audio } from 'expo-av';
 import { Directory, File, Paths } from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {Platform} from "react-native";
+import { audioAPI } from '../services/api';
 
 // ============= CONFIGURATION =============
 const CACHE_DIRECTORY = new Directory(Paths.cache, 'audio');
@@ -116,19 +116,16 @@ class AudioService {
             console.log("🎯 Cache hit for word:", word);
             return cachedUrl;
         }
-
-        const apiUrl = `${AUDIO_CONFIG.API_BASE_URL}/api/audio/word/${word}?language=${options.language || 'en-US'}`;
-
+        const response = await audioAPI.getWordAudio(word, options.language || 'en-US');
         try {
-            const response = await fetch(apiUrl);
             const contentType = response.headers.get("content-type");
 
             console.log("📦 Content-Type:", contentType);
 
             // Trường hợp 1: Backend trả JSON (tức là file đã có trên S3)
             if (contentType && contentType.includes("application/json")) {
-                const data = await response.json();
-
+                const text = new TextDecoder().decode(response.data);
+                const data = JSON.parse(text);
                 if (data.url) {
                     console.log("☁️ Audio từ S3:", data.url);
 
@@ -142,7 +139,7 @@ class AudioService {
             console.log("🎵 Backend returned raw audio stream");
             const filename = `${cacheKey}.mp3`;
             const file = new File(this.cacheDirectory, filename);
-            const arrayBuffer = await response.arrayBuffer();
+            const arrayBuffer = response.data; // chính là ArrayBuffer
             const uint8Array = new Uint8Array(arrayBuffer);
             console.log('📊 Downloaded bytes:', uint8Array.length);
 
@@ -163,7 +160,6 @@ class AudioService {
                     timestamp: Date.now(),
                 })
             );
-            // const localUri = await this.downloadAndCache(cacheKey, apiUrl);
             return file.uri;
 
         } catch (error) {

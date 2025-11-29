@@ -104,6 +104,7 @@ export default function LearnNewScreen({ navigation, route }) {
   const handleResponse = async (quality) => {
     try {
       const currentVocab = vocabs[currentIndex];
+      console.log(currentVocab)
       await learningAPI.startLearning(currentVocab._id, quality);
 
       // Check if finished all available vocabs
@@ -207,6 +208,18 @@ export default function LearnNewScreen({ navigation, route }) {
               ]}
           >
             <Text style={styles.wordText}>{currentVocab.word}</Text>
+            <View style={styles.metaContainer}>
+              {currentVocab.partOfSpeech && (
+                <Text style={styles.partOfSpeech}>
+                  {currentVocab.partOfSpeech}
+                </Text>
+              )}
+              {currentVocab.cefrLevel && (
+                <Text style={styles.cefrLevel}>
+                  {currentVocab.cefrLevel}
+                </Text>
+              )}
+            </View>
             <Text style={styles.phonetic}>
               {currentVocab.pronunciation || '...'}
             </Text>
@@ -225,7 +238,7 @@ export default function LearnNewScreen({ navigation, route }) {
           >
             <Text style={styles.meaningText}>{currentVocab.meaning}</Text>
             <Text style={styles.exampleText}>
-              {currentVocab.example || 'Không có ví dụ'}
+              {currentVocab.examples[0].sentence || 'Không có ví dụ'}
             </Text>
             <TouchableOpacity style={styles.flipButton} onPress={flipCard}>
               <Text style={[styles.flipButtonText, { color: '#FFFFFF' }]}>

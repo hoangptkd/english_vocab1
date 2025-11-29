@@ -175,8 +175,8 @@ export const learningAPI = {
     return response.data;
   },
 
-  updateProgress: async (vocabId, isCorrect) => {
-    const response = await api.post('/learning/update', { vocabId, isCorrect });
+  updateProgress: async (vocabId, isCorrect, methodType) => {
+    const response = await api.post('/learning/update', { vocabId, isCorrect, methodType  });
     return response.data;
   },
 
@@ -358,19 +358,20 @@ export const statisticsAPI = {
 
 export const audioAPI = {
   // Get audio URL for a word
-  getWordAudio: async (word, language = 'en-US') => {
-    const response = await api.get(`/audio/word/${word}`, {
-      params: { language }
-    });
-    return response.data;
-  },
+    getWordAudio: async (word, language = 'en-US') => {
+        return api.get(`/audio/word/${word}`, {
+            params: { language },
+            responseType: 'arraybuffer', // để data luôn là ArrayBuffer (khi audio)
+            transformResponse: x => x   // giữ nguyên, không tự parse
+        });
+    },
 
   // Generate TTS audio
   generateTTS: async (text, options = {}) => {
     const response = await api.get('/audio/tts', {
       params: { text, ...options }
     });
-    return response.data;
+    return response;
   },
 
   // Batch pre-generate audio

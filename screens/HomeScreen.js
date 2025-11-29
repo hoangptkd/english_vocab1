@@ -253,32 +253,32 @@ export default function HomeScreen({ navigation, route  }) {
                   )}
                 </View>
 
-                {/* Thống kê tổng quan */}
-                <View style={styles.statsContainer}>
-                  <Text style={styles.sectionTitle}>📈 Thống kê tổng quan</Text>
+                {/*/!* Thống kê tổng quan *!/*/}
+                {/*<View style={styles.statsContainer}>*/}
+                {/*  <Text style={styles.sectionTitle}>📈 Thống kê tổng quan</Text>*/}
 
-                  <View style={styles.statsGrid}>
-                    <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
-                      <Text style={styles.statNumber}>{stats.statusBreakdown?.learning || 0}</Text>
-                      <Text style={styles.statLabel}>Đang học</Text>
-                    </View>
+                {/*  <View style={styles.statsGrid}>*/}
+                {/*    <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>*/}
+                {/*      <Text style={styles.statNumber}>{stats.statusBreakdown?.learning || 0}</Text>*/}
+                {/*      <Text style={styles.statLabel}>Đang học</Text>*/}
+                {/*    </View>*/}
 
-                    <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
-                      <Text style={styles.statNumber}>{stats.statusBreakdown?.review || 0}</Text>
-                      <Text style={styles.statLabel}>Cần ôn tập</Text>
-                    </View>
+                {/*    <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>*/}
+                {/*      <Text style={styles.statNumber}>{stats.statusBreakdown?.review || 0}</Text>*/}
+                {/*      <Text style={styles.statLabel}>Cần ôn tập</Text>*/}
+                {/*    </View>*/}
 
-                    <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
-                      <Text style={styles.statNumber}>{stats.statusBreakdown?.mastered || 0}</Text>
-                      <Text style={styles.statLabel}>Đã thuộc</Text>
-                    </View>
+                {/*    <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>*/}
+                {/*      <Text style={styles.statNumber}>{stats.statusBreakdown?.mastered || 0}</Text>*/}
+                {/*      <Text style={styles.statLabel}>Đã thuộc</Text>*/}
+                {/*    </View>*/}
 
-                    <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>
-                      <Text style={styles.statNumber}>{stats.dueForReview || 0}</Text>
-                      <Text style={styles.statLabel}>Đến giờ ôn</Text>
-                    </View>
-                  </View>
-                </View>
+                {/*    <View style={[styles.statCard, { backgroundColor: '#FEE2E2' }]}>*/}
+                {/*      <Text style={styles.statNumber}>{stats.dueForReview || 0}</Text>*/}
+                {/*      <Text style={styles.statLabel}>Đến giờ ôn</Text>*/}
+                {/*    </View>*/}
+                {/*  </View>*/}
+                {/*</View>*/}
 
                 {/* Info box */}
                 <View style={styles.infoBox}>

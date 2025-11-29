@@ -105,7 +105,7 @@ export default function AdminVocabularyScreen() {
             word: vocab.word,
             pronunciation: vocab.pronunciation || '',
             meaning: vocab.meaning,
-            example: vocab.example || '',
+            example: vocab.example  || '',
             level: vocab.level,
             topicId: vocab.topicId || '',
         });
@@ -259,8 +259,8 @@ export default function AdminVocabularyScreen() {
                                     <Text style={styles.vocabPronunciation}>{vocab.pronunciation}</Text>
                                 )}
                                 <Text style={styles.vocabMeaning}>{vocab.meaning}</Text>
-                                {!!vocab.example && (
-                                    <Text style={styles.vocabExample}>"{vocab.example}"</Text>
+                                {!!vocab.examples[0]?.sentence && (
+                                    <Text style={styles.vocabExample}>"{vocab.examples[0].sentence}"</Text>
                                 )}
                                 <View style={styles.vocabActions}>
                                     <TouchableOpacity

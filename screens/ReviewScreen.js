@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef  } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import { vocabularyAPI, learningAPI } from '../services/api';
 import {AudioButton, AutoDownloadAudio} from '../components/AudioButton';
 import AudioService from '../services/AudioService';
+import { useNavigation } from '@react-navigation/native';
 
 // ============= QUIZ METHOD CONFIGURATIONS =============
 const QUIZ_METHODS = {
@@ -115,7 +116,7 @@ const QuizGenerators = {
 
   [QUIZ_METHODS.FILL_IN_BLANK.id]: (vocabs, currentIndex) => {
     const currentVocab = vocabs[currentIndex].vocabId;
-    let sentence = currentVocab.example || `The word means "${currentVocab.meaning}"`;
+    let sentence = currentVocab.examples[0]?.sentence || `The word means "${currentVocab.meaning}"`;
 
     const wordRegex = new RegExp(`\\b${currentVocab.word}\\b`, 'gi');
     const blankedSentence = sentence.replace(wordRegex, '______');
@@ -133,7 +134,7 @@ const QuizGenerators = {
   [QUIZ_METHODS.SENTENCE_COMPLETION.id]: (vocabs, currentIndex) => {
     const currentVocab = vocabs[currentIndex].vocabId;
 
-    let sentence = currentVocab.example;
+    let sentence = currentVocab.examples[0]?.sentence;
     if (!sentence) {
       sentence = `I need to use the word that means "${currentVocab.meaning}" here: ______`;
     } else {
@@ -154,6 +155,8 @@ const QuizGenerators = {
 
 // ============= MAIN COMPONENT =============
 export default function ReviewScreen() {
+    const navigation = useNavigation();
+
   const [vocabs, setVocabs] = useState([]);
   const [incorrectVocabs, setIncorrectVocabs] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -164,9 +167,13 @@ export default function ReviewScreen() {
   const [isCorrect, setIsCorrect] = useState(false);
   const [currentQuiz, setCurrentQuiz] = useState(null);
   const [currentMethod, setCurrentMethod] = useState(null);
-
-  const fadeAnim = new Animated.Value(1);
-  const scaleAnim = new Animated.Value(1);
+    const [showCompletion, setShowCompletion] = useState(false);
+    const [completionType, setCompletionType] = useState(null); // 'success' hoặc 'retry'
+// Dùng useRef để giữ nguyên Animated.Value giữa các lần render
+    const completionFadeAnim = useRef(new Animated.Value(0)).current;
+    const completionScaleAnim = useRef(new Animated.Value(0.5)).current;
+    const fadeAnim = useRef(new Animated.Value(1)).current;
+    const scaleAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     loadVocabs();
@@ -276,7 +283,7 @@ export default function ReviewScreen() {
 
     // Gửi kết quả lên server
     try {
-      await learningAPI.updateProgress(currentVocab._id, correct);
+      await learningAPI.updateProgress(currentVocab._id, correct, currentMethod.id);
     } catch (error) {
       console.error('Không thể cập nhật tiến trình:', error);
     }
@@ -301,35 +308,73 @@ export default function ReviewScreen() {
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
-      if (currentIndex >= vocabs.length - 1) {
-        if (incorrectVocabs.length > 0) {
-          const vocabsToReview = [...incorrectVocabs];
-          Alert.alert(
-              'Ôn tập lại',
-              `Bạn còn ${vocabsToReview.length} từ cần ôn lại. Hãy cố gắng nhé!`,
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    setIncorrectVocabs([]);
-                    setCurrentIndex(0);
-                    setVocabs(vocabsToReview);
-                    resetCard();
-                  },
-                },
-              ]
-          );
+        if (currentIndex >= vocabs.length - 1) {
+            if (incorrectVocabs.length > 0) {
+                setCompletionType('retry');
+                showCompletionScreen();
+            } else {
+                setCompletionType('success');
+                showCompletionScreen();
+            }
         } else {
-          Alert.alert('Hoàn thành', 'Bạn đã ôn tập xong! 🎉', [
-            { text: 'OK', onPress: () => loadVocabs() },
-          ]);
+            setCurrentIndex(currentIndex + 1);
+            resetCard();
         }
-      } else {
-        setCurrentIndex(currentIndex + 1);
-        resetCard();
-      }
     });
   };
+
+    const showCompletionScreen = () => {
+        setShowCompletion(true);
+        Animated.parallel([
+            Animated.timing(completionFadeAnim, {
+                toValue: 1,
+                duration: 500,
+                useNativeDriver: true,
+            }),
+            Animated.spring(completionScaleAnim, {
+                toValue: 1,
+                friction: 8,
+                tension: 40,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    };
+
+    const handleCompletionAction = () => {
+        Animated.parallel([
+            Animated.timing(completionFadeAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+            Animated.timing(completionScaleAnim, {
+                toValue: 0.5,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+        ]).start(() => {
+            setShowCompletion(false);
+            if (completionType === 'retry') {
+                const vocabsToReview = [...incorrectVocabs];
+                setIncorrectVocabs([]);
+                setCurrentIndex(0);
+                setVocabs(vocabsToReview);
+                resetCard();
+            } else {
+                navigation.reset({
+                    index: 0,
+                    routes: [
+                        {
+                            name: 'MainTabs',
+                            params: {
+                                screen: 'HomeTab' // Tên tab bên trong BottomTabNavigator
+                            }
+                        }
+                    ],
+                });
+            }
+        });
+    };
 
   const resetCard = () => {
     setSelectedAnswer(null);
@@ -484,7 +529,59 @@ export default function ReviewScreen() {
         </>
     );
   };
+    const renderCompletionScreen = () => {
+        if (!showCompletion) return null;
 
+        const isRetry = completionType === 'retry';
+
+        return (
+            <Animated.View
+                style={[
+                    styles.completionOverlay,
+                    {
+                        opacity: completionFadeAnim,
+                    }
+                ]}
+            >
+                <Animated.View
+                    style={[
+                        styles.completionCard,
+                        {
+                            transform: [{ scale: completionScaleAnim }]
+                        }
+                    ]}
+                >
+                    <Text style={styles.completionIcon}>
+                        {isRetry ? '💪' : '🎉'}
+                    </Text>
+
+                    <Text style={styles.completionTitle}>
+                        {isRetry ? 'Ôn tập lại' : 'Hoàn thành!'}
+                    </Text>
+
+                    <Text style={styles.completionMessage}>
+                        {isRetry
+                            ? `Bạn còn ${incorrectVocabs.length} từ cần ôn lại.\nHãy cố gắng nhé!`
+                            : 'Bạn đã ôn tập xong!\nTuyệt vời! 🌟'
+                        }
+                    </Text>
+
+                    <TouchableOpacity
+                        style={[
+                            styles.completionButton,
+                            isRetry ? styles.completionButtonRetry : styles.completionButtonSuccess
+                        ]}
+                        onPress={handleCompletionAction}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={styles.completionButtonText}>
+                            {isRetry ? 'Ôn lại ngay' : 'Về trang chủ'}
+                        </Text>
+                    </TouchableOpacity>
+                </Animated.View>
+            </Animated.View>
+        );
+    };
   // ============= MAIN RENDER =============
   if (loading) {
     return (
@@ -516,53 +613,56 @@ export default function ReviewScreen() {
   const totalVocabs = vocabs.length + incorrectVocabs.length;
   const progress = ((currentIndex + incorrectVocabs.length) / totalVocabs) * 100;
 
-  return (
-      <View style={styles.container}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
-        </View>
+    return (
+        <View style={styles.container}>
+            <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${progress}%` }]} />
+            </View>
 
-        <Text style={styles.counter}>
-          {currentIndex + 1} / {vocabs.length}
-          {incorrectVocabs.length > 0 && (
-              <Text style={styles.incorrectCount}>
-                {' '}({incorrectVocabs.length} cần ôn lại)
-              </Text>
-          )}
-        </Text>
-
-        <Animated.View
-            style={[
-              styles.content,
-              {
-                opacity: fadeAnim,
-                transform: [{ scale: scaleAnim }],
-              },
-            ]}
-        >
-          {renderQuiz()}
-
-          {showResult && currentVocab.example && (
-              <Animated.View style={styles.resultContainer}>
-                {isCorrect ? (
-                    <View style={styles.resultCorrect}>
-                      <Text style={styles.resultIcon}>🎉</Text>
-                      <Text style={styles.resultText}>Chính xác!</Text>
-                    </View>
-                ) : (
-                    <View style={styles.resultWrong}>
-                      <Text style={styles.resultIcon}>💪</Text>
-                      <Text style={styles.resultText}>Ôn lại nhé!</Text>
-                      <Text style={styles.exampleText}>
-                        Ví dụ: {currentVocab.example}
-                      </Text>
-                    </View>
+            <Text style={styles.counter}>
+                {currentIndex + 1} / {vocabs.length}
+                {incorrectVocabs.length > 0 && (
+                    <Text style={styles.incorrectCount}>
+                        {' '}({incorrectVocabs.length} cần ôn lại)
+                    </Text>
                 )}
-              </Animated.View>
-          )}
-        </Animated.View>
-      </View>
-  );
+            </Text>
+
+            <Animated.View
+                style={[
+                    styles.content,
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ scale: scaleAnim }],
+                    },
+                ]}
+            >
+                {renderQuiz()}
+
+                {showResult && currentVocab.examples[0]?.sentence && (
+                    <Animated.View style={styles.resultContainer}>
+                        {isCorrect ? (
+                            <View style={styles.resultCorrect}>
+                                <Text style={styles.resultIcon}>🎉</Text>
+                                <Text style={styles.resultText}>Chính xác!</Text>
+                            </View>
+                        ) : (
+                            <View style={styles.resultWrong}>
+                                <Text style={styles.resultIcon}>💪</Text>
+                                <Text style={styles.resultText}>Ôn lại nhé!</Text>
+                                <Text style={styles.exampleText}>
+                                    Ví dụ: {currentVocab.examples[0]?.sentence}
+                                </Text>
+                            </View>
+                        )}
+                    </Animated.View>
+                )}
+            </Animated.View>
+
+            {/* ĐẶT Ở ĐÂY - NGOÀI Animated.View */}
+            {renderCompletionScreen()}
+        </View>
+    );
 }
 
 // ============= STYLES =============
@@ -850,4 +950,64 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
+    completionOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    completionCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 40,
+        alignItems: 'center',
+        width: '100%',
+        maxWidth: 400,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    completionIcon: {
+        fontSize: 80,
+        marginBottom: 20,
+    },
+    completionTitle: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: '#1F2937',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    completionMessage: {
+        fontSize: 16,
+        color: '#6B7280',
+        textAlign: 'center',
+        marginBottom: 32,
+        lineHeight: 24,
+    },
+    completionButton: {
+        paddingHorizontal: 32,
+        paddingVertical: 16,
+        borderRadius: 12,
+        width: '100%',
+        alignItems: 'center',
+    },
+    completionButtonSuccess: {
+        backgroundColor: '#10B981',
+    },
+    completionButtonRetry: {
+        backgroundColor: '#4F46E5',
+    },
+    completionButtonText: {
+        color: '#FFFFFF',
+        fontSize: 18,
+        fontWeight: '600',
+    },
 });
