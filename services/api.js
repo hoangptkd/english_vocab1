@@ -163,9 +163,14 @@ export const vocabularyAPI = {
   },
 
   getReviewVocabs: async () => {
-    const response = await api.get('/vocabulary/review');
+    const response = await api.get('/learning/review');
     return response.data;
   },
+
+    getAllLearning: async () => {
+        const response = await api.get('/learning/all');
+        return response.data;
+    }
 };
 
 // Learning APIs

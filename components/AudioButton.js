@@ -13,11 +13,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import AudioService from '../services/AudioService';
 import audioService from "../services/AudioService";
-
+import { detectLanguage } from '../utils/languageUtils'; // Import hàm trên
 // ============= AUDIO BUTTON COMPONENT =============
 export const AudioButton = ({
                                 word,
-                                language = 'en-US',
+                                language,
                                 size = 'medium',
                                 autoPlay = false,
                                 style,
@@ -25,6 +25,7 @@ export const AudioButton = ({
                                 onPlayEnd,
                                 onError,
                             }) => {
+    const targetLanguage = language || detectLanguage(word);
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const scaleAnim = React.useRef(new Animated.Value(1)).current;
@@ -83,7 +84,7 @@ export const AudioButton = ({
             setIsPlaying(true);
 
             // ✅ Phát âm thanh với expo-audio
-            await AudioService.playSmart(word, { language });
+            await AudioService.playSmart(word, { language: targetLanguage });
 
             // Delay để đồng bộ với thời gian phát
             setTimeout(() => {

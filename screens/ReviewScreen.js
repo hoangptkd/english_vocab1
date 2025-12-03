@@ -8,7 +8,7 @@ import {
   Alert,
   TextInput,
 } from 'react-native';
-import { vocabularyAPI, learningAPI } from '../services/api';
+import api, { vocabularyAPI, learningAPI } from '../services/api';
 import {AudioButton, AutoDownloadAudio} from '../components/AudioButton';
 import AudioService from '../services/AudioService';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +28,7 @@ const QUIZ_METHODS = {
     name: 'Trắc nghiệm: Meaning → Word',
     difficulty: 2,
     description: 'Chọn từ đúng theo nghĩa',
-    minRepetition: 2,
+    minRepetition: 1,
     autoPlayAudio: false, // Không tự động phát (người dùng nhấn button)
   },
   FILL_IN_BLANK: {
@@ -36,7 +36,7 @@ const QUIZ_METHODS = {
     name: 'Điền từ',
     difficulty: 3,
     description: 'Điền từ vào chỗ trống',
-    minRepetition: 4,
+    minRepetition: 3,
     autoPlayAudio: false,
   },
   SENTENCE_COMPLETION: {
@@ -66,16 +66,37 @@ const selectQuizMethod = (repetitionCount, availableMethods = null) => {
 
 // ============= QUIZ GENERATORS =============
 const QuizGenerators = {
-  [QUIZ_METHODS.MULTIPLE_CHOICE_WORD_TO_MEANING.id]: (vocabs, currentIndex) => {
+  [QUIZ_METHODS.MULTIPLE_CHOICE_WORD_TO_MEANING.id]: (vocabs, currentIndex, allLearning) => {
     const currentVocab = vocabs[currentIndex].vocabId;
-    const correctAnswer = currentVocab.meaning;
+      const correctAnswer = currentVocab.partOfSpeech[0]?.meaning;
 
-    const wrongAnswers = vocabs
-        .filter((v, idx) => idx !== currentIndex && v.vocabId)
-        .map(v => v.vocabId.meaning)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
+    // note : cần sửa lại filter theo cùng partOfSpeech để tránh đáp án sai quá lạ
+      let wrongAnswers = vocabs
+          .filter((v, idx) => idx !== currentIndex && v.vocabId)
+          .map(v => v.vocabId.partOfSpeech[0]?.meaning)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3);
+    // nếu wrongAnswers không đủ 3 thì thêm các nghĩa khác từ currentVocab
+      if (wrongAnswers.length < 3 && allLearning && allLearning.length > 0) {
+          const numberNeeded = 3 - wrongAnswers.length;
 
+          // Lọc allLearning để lấy các ứng viên:
+          const additionalCandidates = allLearning
+              .filter(l =>
+                  l.vocabId &&
+                  l.vocabId._id !== currentVocab._id &&
+                  !wrongAnswers.includes(l.vocabId.partOfSpeech[0]?.meaning)
+              )
+              .map(l => l.vocabId.partOfSpeech[0]?.meaning);
+
+          // Xáo trộn và lấy số lượng cần thiết
+          const additionalAnswers = additionalCandidates
+              .sort(() => Math.random() - 0.5)
+              .slice(0, numberNeeded);
+
+          // Gộp vào mảng wrongAnswers
+          wrongAnswers = [...wrongAnswers, ...additionalAnswers];
+      }
     const options = [...wrongAnswers, correctAnswer]
         .sort(() => Math.random() - 0.5);
 
@@ -84,7 +105,7 @@ const QuizGenerators = {
       questionLabel: 'Nghĩa của từ này là gì?',
       options,
       correctAnswer,
-      hint: currentVocab.pronunciation,
+      hint: currentVocab.partOfSpeech[0]?.pronunciation,
       type: 'multiple_choice',
       audioWord: currentVocab.word, // Từ cần phát âm
     };
@@ -94,21 +115,38 @@ const QuizGenerators = {
     const currentVocab = vocabs[currentIndex].vocabId;
     const correctAnswer = currentVocab.word;
 
-    const wrongAnswers = vocabs
+    let wrongAnswers = vocabs
         .filter((v, idx) => idx !== currentIndex && v.vocabId)
         .map(v => v.vocabId.word)
         .sort(() => Math.random() - 0.5)
         .slice(0, 3);
+    // 2. Lấy thêm từ allLearning nếu thiếu
+      if (wrongAnswers.length < 3 && allLearning && allLearning.length > 0) {
+          const numberNeeded = 3 - wrongAnswers.length;
 
+          const additionalCandidates = allLearning
+              .filter(l =>
+                  l.vocabId &&
+                  l.vocabId._id !== currentVocab._id &&
+                  !wrongAnswers.includes(l.vocabId.word)
+              )
+              .map(l => l.vocabId.word);
+
+          const additionalAnswers = additionalCandidates
+              .sort(() => Math.random() - 0.5)
+              .slice(0, numberNeeded);
+
+          wrongAnswers = [...wrongAnswers, ...additionalAnswers];
+      }
     const options = [...wrongAnswers, correctAnswer]
         .sort(() => Math.random() - 0.5);
 
     return {
-      question: currentVocab.meaning,
+      question: currentVocab.partOfSpeech[0]?.meaning,
       questionLabel: 'Từ tiếng Anh nào có nghĩa này?',
       options,
       correctAnswer,
-      hint: currentVocab.pronunciation,
+      hint: currentVocab.partOfSpeech[0]?.pronunciation,
       type: 'multiple_choice',
       audioWord: currentVocab.word,
     };
@@ -116,7 +154,7 @@ const QuizGenerators = {
 
   [QUIZ_METHODS.FILL_IN_BLANK.id]: (vocabs, currentIndex) => {
     const currentVocab = vocabs[currentIndex].vocabId;
-    let sentence = currentVocab.examples[0]?.sentence || `The word means "${currentVocab.meaning}"`;
+    let sentence = currentVocab.partOfSpeech[0]?.examples[0]?.sentence || `The word means "${currentVocab.partOfSpeech[0]?.meaning}"`;
 
     const wordRegex = new RegExp(`\\b${currentVocab.word}\\b`, 'gi');
     const blankedSentence = sentence.replace(wordRegex, '______');
@@ -125,7 +163,7 @@ const QuizGenerators = {
       question: blankedSentence,
       questionLabel: 'Điền từ vào chỗ trống',
       correctAnswer: currentVocab.word.toLowerCase(),
-      hint: `Nghĩa: ${currentVocab.meaning}`,
+      hint: `Nghĩa: ${currentVocab.partOfSpeech[0]?.meaning}`,
       type: 'fill_blank',
       audioWord: currentVocab.word,
     };
@@ -134,9 +172,9 @@ const QuizGenerators = {
   [QUIZ_METHODS.SENTENCE_COMPLETION.id]: (vocabs, currentIndex) => {
     const currentVocab = vocabs[currentIndex].vocabId;
 
-    let sentence = currentVocab.examples[0]?.sentence;
+    let sentence = currentVocab.partOfSpeech[0]?.examples[0]?.sentence;
     if (!sentence) {
-      sentence = `I need to use the word that means "${currentVocab.meaning}" here: ______`;
+      sentence = `I need to use the word that means "${currentVocab.partOfSpeech[0]?.meaning}" here: ______`;
     } else {
       const wordRegex = new RegExp(`\\b${currentVocab.word}\\b`, 'gi');
       sentence = sentence.replace(wordRegex, '______');
@@ -146,7 +184,7 @@ const QuizGenerators = {
       question: sentence,
       questionLabel: 'Viết từ đúng để hoàn thành câu',
       correctAnswer: currentVocab.word.toLowerCase(),
-      hint: `${currentVocab.pronunciation || ''} - Nghĩa: ${currentVocab.meaning}`,
+      hint: `${currentVocab.partOfSpeech[0]?.pronunciation || ''} - Nghĩa: ${currentVocab.partOfSpeech[0]?.meaning}`,
       type: 'sentence_completion',
       audioWord: currentVocab.word,
     };
@@ -156,19 +194,20 @@ const QuizGenerators = {
 // ============= MAIN COMPONENT =============
 export default function ReviewScreen() {
     const navigation = useNavigation();
-
-  const [vocabs, setVocabs] = useState([]);
-  const [incorrectVocabs, setIncorrectVocabs] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [textAnswer, setTextAnswer] = useState('');
-  const [showResult, setShowResult] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
-  const [currentQuiz, setCurrentQuiz] = useState(null);
-  const [currentMethod, setCurrentMethod] = useState(null);
+    const [vocabs, setVocabs] = useState([]);
+    const [allLearning, setAllLearning] = useState([]);
+    const [incorrectVocabs, setIncorrectVocabs] = useState([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [selectedAnswer, setSelectedAnswer] = useState(null);
+    const [textAnswer, setTextAnswer] = useState('');
+    const [showResult, setShowResult] = useState(false);
+    const [isCorrect, setIsCorrect] = useState(false);
+    const [currentQuiz, setCurrentQuiz] = useState(null);
+    const [currentMethod, setCurrentMethod] = useState(null);
     const [showCompletion, setShowCompletion] = useState(false);
     const [completionType, setCompletionType] = useState(null); // 'success' hoặc 'retry'
+    const [showHint, setShowHint] = useState(false);
 // Dùng useRef để giữ nguyên Animated.Value giữa các lần render
     const completionFadeAnim = useRef(new Animated.Value(0)).current;
     const completionScaleAnim = useRef(new Animated.Value(0.5)).current;
@@ -193,7 +232,9 @@ export default function ReviewScreen() {
   const loadVocabs = async () => {
     try {
       const data = await vocabularyAPI.getReviewVocabs();
+      const learningData = await vocabularyAPI.getAllLearning();
       setVocabs(data);
+      setAllLearning(learningData);
       setLoading(false);
     } catch (error) {
       Alert.alert('Lỗi', 'Không thể tải từ vựng');
@@ -212,7 +253,7 @@ export default function ReviewScreen() {
 
     const generator = QuizGenerators[method.id];
     if (generator) {
-      const quiz = generator(vocabs, currentIndex);
+      const quiz = generator(vocabs, currentIndex, allLearning);
       setCurrentQuiz(quiz);
     }
   };
@@ -376,11 +417,15 @@ export default function ReviewScreen() {
         });
     };
 
+    const toggleHint = () => {
+        setShowHint(prev => !prev);
+    };
   const resetCard = () => {
     setSelectedAnswer(null);
     setTextAnswer('');
     setShowResult(false);
     setIsCorrect(false);
+    setShowHint(false);
     fadeAnim.setValue(0);
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -482,53 +527,73 @@ export default function ReviewScreen() {
     );
   };
 
-  const renderQuiz = () => {
-    if (!currentQuiz) return null;
+    const renderQuiz = () => {
+        if (!currentQuiz) return null;
 
-    return (
-        <>
-          <View style={styles.questionCard}>
-            <View style={styles.methodBadge}>
-              <Text style={styles.methodBadgeText}>
-                {currentMethod?.name}
-              </Text>
-              <Text style={styles.difficultyBadge}>
-                {'⭐'.repeat(currentMethod?.difficulty || 1)}
-              </Text>
-            </View>
+        // LƯU Ý: Khởi tạo logic tách từ vựng ngay tại đây
+        const wordString = currentQuiz.question;
+        const parts = wordString.split(' - ');
+        const hasReading = parts.length > 1;
+        const mainText = hasReading ? parts[1] : parts[0]; // Hiragana (hoặc Word gốc)
+        const subText = hasReading ? parts[0] : null;      // Kanji (hoặc null)
 
-            <Text style={styles.questionLabel}>{currentQuiz.questionLabel}</Text>
+        return (
+            <>
+                <View style={styles.questionCard}>
+                    {/* ... code methodBadge/questionLabel cũ ... */}
 
-            {/* 🔊 QUESTION WITH AUDIO BUTTON */}
-            <View style={styles.questionWithAudio}>
-              <Text style={styles.wordText}>{currentQuiz.question}</Text>
-              <AudioButton
-                  word={currentQuiz.audioWord}
-                  language="en-US"
-                  size="medium"
-              />
-            </View>
+                    <Text style={styles.questionLabel}>{currentQuiz.questionLabel}</Text>
 
-            {currentQuiz.hint && (
-                <Text style={styles.phonetic}>{currentQuiz.hint}</Text>
-            )}
+                    {/* 🔊 QUESTION WITH AUDIO BUTTON VÀ 2 DÒNG TEXT */}
+                    <View style={styles.questionWithAudio}>
 
-            {/* 🔊 AUTO-PLAY AUDIO (nếu method yêu cầu) */}
-              {currentMethod?.autoPlayAudio && (
-                  <AutoDownloadAudio
-                      word={currentQuiz.audioWord}
-                      language="en-US"
-                  />
-              )}
-          </View>
+                        {/* 1. KHỐI TEXT: Hiển thị 2 dòng nếu cần */}
+                        <View style={styles.textColumnContainer}>
+                            <Text style={styles.wordText}>{mainText}</Text>
+                            {subText && (
+                                <Text style={styles.subWordText}>({subText})</Text>
+                            )}
+                        </View>
 
-          {currentQuiz.type === 'multiple_choice'
-              ? renderMultipleChoice()
-              : renderTextInput()
-          }
-        </>
-    );
-  };
+                        {/* 2. NÚT AUDIO */}
+                        <AudioButton
+                            word={currentQuiz.audioWord}
+                            size="medium"
+                        />
+                    </View>
+
+                    {/* 3. HINT: Nút ẩn hiện và Text */}
+                    <TouchableOpacity
+                        onPress={toggleHint}
+                        style={styles.hintButton}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.hintButtonText}>
+                            {showHint ? 'Ẩn Gợi ý' : 'Bấm để xem Gợi ý'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* 4. TEXT GỢI Ý (ẨN/HIỆN) */}
+                    {currentQuiz.hint && showHint && (
+                        <Text style={styles.phonetic}>{currentQuiz.hint}</Text>
+                    )}
+
+                    {/* 🔊 AUTO-PLAY AUDIO (nếu method yêu cầu) */}
+                    {currentMethod?.autoPlayAudio && (
+                        <AutoDownloadAudio
+                            word={currentQuiz.audioWord}
+                            language="en-US"
+                        />
+                    )}
+                </View>
+
+                {currentQuiz.type === 'multiple_choice'
+                    ? renderMultipleChoice()
+                    : renderTextInput()
+                }
+            </>
+        );
+    };
     const renderCompletionScreen = () => {
         if (!showCompletion) return null;
 
@@ -639,7 +704,7 @@ export default function ReviewScreen() {
             >
                 {renderQuiz()}
 
-                {showResult && currentVocab.examples[0]?.sentence && (
+                {showResult && currentVocab.partOfSpeech[0]?.examples[0]?.sentence && (
                     <Animated.View style={styles.resultContainer}>
                         {isCorrect ? (
                             <View style={styles.resultCorrect}>
@@ -651,7 +716,7 @@ export default function ReviewScreen() {
                                 <Text style={styles.resultIcon}>💪</Text>
                                 <Text style={styles.resultText}>Ôn lại nhé!</Text>
                                 <Text style={styles.exampleText}>
-                                    Ví dụ: {currentVocab.examples[0]?.sentence}
+                                    Ví dụ: {currentVocab.partOfSpeech[0]?.examples[0]?.sentence}
                                 </Text>
                             </View>
                         )}
@@ -749,15 +814,16 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 8,
   },
+    // Container mới để chứa 2 dòng text (Kanji/Hiragana)
+    textColumnContainer: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
   wordText: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#1F2937',
-    textAlign: 'center',
-  },
-  phonetic: {
-    fontSize: 16,
-    color: '#6B7280',
     textAlign: 'center',
   },
   optionsContainer: {
@@ -1009,5 +1075,37 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 18,
         fontWeight: '600',
+    },
+    // Style cho dòng Kanji phụ (dòng dưới)
+    subWordText: {
+        fontSize: 24,
+        fontWeight: '500',
+        color: '#6B7280',     // Màu xám
+        marginTop: 4,
+        fontStyle: 'italic',
+    },
+
+    // Style cho Hint
+    hintButton: {
+        marginTop: 10,
+        marginBottom: 10,
+        paddingVertical: 8,
+        paddingHorizontal: 15,
+        borderRadius: 8,
+        backgroundColor: '#F3F4F6', // Màu nền nhẹ
+        borderWidth: 1,
+        borderColor: '#D1D5DB',
+    },
+    hintButtonText: {
+        fontSize: 14,
+        color: '#4F46E5', // Màu tím nổi bật
+        fontWeight: '600',
+    },
+
+    phonetic: {
+        fontSize: 16,
+        color: '#6B7280',
+        textAlign: 'center',
+        marginTop: 5, // Đảm bảo có khoảng cách sau nút Hint
     },
 });

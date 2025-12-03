@@ -5,12 +5,21 @@ import { Audio } from 'expo-av';
 import { Directory, File, Paths } from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { audioAPI } from '../services/api';
-
+import {Platform} from "react-native";
+import * as FileSystem from 'expo-file-system/legacy';
 // ============= CONFIGURATION =============
 const CACHE_DIRECTORY = new Directory(Paths.cache, 'audio');
+const PROD_API_ROOT = 'https://english-vocab-it2k.onrender.com'; // ✅ Render
+const DEV_API_ROOT_ANDROID = 'http://10.0.2.2:3000';
+const DEV_API_ROOT_IOS = 'http://192.168.1.7:3000'; // đổi IP LAN của bạn khi cần
+const DEV_API_ROOT_WEB = 'http://localhost:3000';
+const API_ROOT =
+    __DEV__
+        ? (Platform.OS === 'android' ? DEV_API_ROOT_ANDROID : (Platform.OS === 'ios' ? PROD_API_ROOT : DEV_API_ROOT_WEB))
+        : PROD_API_ROOT;
 
 const AUDIO_CONFIG = {
-    API_BASE_URL: 'http://10.0.2.2:3000',
+    API_BASE_URL: API_ROOT,
     CACHE: {
         maxSize: 50 * 1024 * 1024,
         maxAge: 30 * 24 * 60 * 60 * 1000,
@@ -107,7 +116,7 @@ class AudioService {
 
     // Lấy audio từ Backend
     async getPreRecordedAudio(word, options) {
-        const normalizedWord = word.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const normalizedWord = word.toLowerCase().replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
         const cacheKey = `audio_${normalizedWord}`;
 
         // 1. Check cache local trước
